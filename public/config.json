@@ -5,8 +5,7 @@
         "url": "https://cadastrohml.sustennutri.com.br",
         "realm": "rovema",
         "clientId": "portal-pix",
-        "onLoad": "check-sso",
-        "silentCheckSsoRedirectUri": "/silent-check-sso.html",
+        "onLoad": "login-required",
         "checkLoginIframe": false,
         "bearerExcludedUrls": [
             "/config",

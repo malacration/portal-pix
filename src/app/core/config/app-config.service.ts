@@ -42,8 +42,8 @@ const DEFAULT_KEYCLOAK_CONFIG: AppKeycloakConfig = {
     url: '',
     realm: '',
     clientId: '',
-    onLoad: 'check-sso',
-    silentCheckSsoRedirectUri: '/silent-check-sso.html',
+    onLoad: 'login-required',
+    silentCheckSsoRedirectUri: null,
     checkLoginIframe: false,
     bearerExcludedUrls: ['/config', '/config.json']
 };
