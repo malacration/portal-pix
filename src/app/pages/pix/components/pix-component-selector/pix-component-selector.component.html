@@ -1,0 +1,30 @@
+<div class="grid grid-cols-12 gap-4">
+    <div class="col-span-12 md:col-span-6">
+        <label for="pix-sistema" class="mb-2 block font-medium">Sistema</label>
+        <p-select
+            inputId="pix-sistema"
+            class="w-full"
+            [options]="systems"
+            optionLabel="nome"
+            optionValue="nome"
+            [ngModel]="selectedSystemName()"
+            (ngModelChange)="onSystemChange($event ?? '')"
+            placeholder="Selecione um sistema"
+        />
+    </div>
+
+    <div class="col-span-12 md:col-span-6">
+        <label for="pix-operacao" class="mb-2 block font-medium">Operacao</label>
+        <p-select
+            inputId="pix-operacao"
+            class="w-full"
+            [options]="availableOperations()"
+            optionLabel="nome"
+            optionValue="componente"
+            [ngModel]="selectedOperationComponent()"
+            (ngModelChange)="onOperationChange($event ?? '')"
+            [disabled]="!availableOperations().length"
+            placeholder="Selecione uma operacao"
+        />
+    </div>
+</div>

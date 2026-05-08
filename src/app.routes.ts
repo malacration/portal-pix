@@ -1,15 +1,19 @@
 import { Routes } from '@angular/router';
+import { authChildGuard } from './app/core/auth/auth.guard';
 import { AppLayout } from './app/layout/component/app.layout';
 import { Documentation } from './app/pages/documentation/documentation';
 import { Landing } from './app/pages/landing/landing';
 import { Notfound } from './app/pages/notfound/notfound';
 import { Pix } from './app/pages/pix/pix';
+import { PixSharePageComponent } from './app/pages/pix-share/pix-share-page.component';
 import { Transactions } from './app/pages/transactions/transactions';
 
 export const appRoutes: Routes = [
+    { path: 'pix/share', component: PixSharePageComponent },
     {
         path: '',
         component: AppLayout,
+        canActivateChild: [authChildGuard],
         children: [
             { path: '', component: Pix },
             { path: 'pix', component: Pix },

@@ -1,8 +1,11 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { interval, startWith } from 'rxjs';
 import { ButtonModule } from 'primeng/button';
+import { ButtonGroupModule } from 'primeng/buttongroup';
 import { DialogModule } from 'primeng/dialog';
 import { IconFieldModule } from 'primeng/iconfield';
 import { InputIconModule } from 'primeng/inputicon';
@@ -10,6 +13,10 @@ import { InputTextModule } from 'primeng/inputtext';
 import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
+import { AppConfigService } from '@/app/core/config/app-config.service';
+import { getPixTransactionTypeLabel, PixTransactionType } from '@/app/core/models/pix-transaction-type';
+import { PixShareLinkComponent, PixShareLinkData } from '@/app/shared/pix-share-link/pix-share-link.component';
 import { getApiErrorMessage } from '../service/api-error-response';
 import { PixService, TransactionPaymentConsultationResponse } from '../service/pix.service';
 import { TransactionDocument, TransactionsService } from '../service/transactions.service';
@@ -22,12 +29,16 @@ interface TransactionDetailEntry {
     value: unknown;
 }
 
+
 const TEXT_FILTER_FIELDS = ['txId', 'reference', 'clienteNome', 'empresa'] as const;
 const DATE_FIELDS = new Set(['vencimentoTitulo', 'pixGeradoEm', 'pixExpiraEm', 'createdAt']);
 const HIDDEN_DETAIL_FIELDS = new Set(['qrCode', 'qrCodeBase64']);
 const FIELD_LABELS: Record<string, string> = {
+    status: 'Status da transacao',
+    statusTituloRef: 'Status do titulo de referencia',
     id: 'ID',
-    idLancamento: 'ID lancamento',
+    idLancamento: 'ID Ref.',
+    tipoTransacao: 'Tipo',
     txId: 'TxID',
     reference: 'Reference',
     empresa: 'Empresa',
@@ -35,7 +46,6 @@ const FIELD_LABELS: Record<string, string> = {
     clienteNome: 'Cliente',
     clienteCodigo: 'Codigo cliente',
     valor: 'Valor',
-    statusTitulo: 'Status',
     descricao: 'Descricao',
     numeroParcela: 'Parcela',
     vencimentoTitulo: 'Vencimento',
@@ -49,8 +59,11 @@ const FIELD_LABELS: Record<string, string> = {
     createdAt: 'Criado em'
 };
 const FIELD_ORDER = [
+    'status',
+    'statusTituloRef',
     'id',
     'idLancamento',
+    'tipoTransacao',
     'txId',
     'reference',
     'empresa',
@@ -58,7 +71,6 @@ const FIELD_ORDER = [
     'clienteNome',
     'clienteCodigo',
     'valor',
-    'statusTitulo',
     'descricao',
     'numeroParcela',
     'vencimentoTitulo',
@@ -91,7 +103,7 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
 @Component({
     selector: 'app-transactions',
     standalone: true,
-    imports: [CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule, SelectModule, DialogModule, TagModule, IconFieldModule, InputIconModule],
+    imports: [CommonModule, FormsModule, TableModule, ButtonModule, ButtonGroupModule, InputTextModule, SelectModule, DialogModule, TagModule, IconFieldModule, InputIconModule, TooltipModule, PixShareLinkComponent],
     template: `
         <div class="grid grid-cols-12 gap-8">
             <div class="col-span-12">
@@ -109,7 +121,21 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                     </div>
 
                     <div class="grid grid-cols-12 gap-4">
-                        <div class="col-span-12 lg:col-span-7">
+                        <div class="col-span-12 md:col-span-6 lg:col-span-3">
+                            <label for="transactions-system" class="mb-2 block font-medium">Sistema</label>
+                            <p-select
+                                inputId="transactions-system"
+                                class="w-full"
+                                [options]="systems"
+                                optionLabel="nome"
+                                optionValue="nome"
+                                [ngModel]="selectedSystemName()"
+                                (ngModelChange)="onSystemChange($event ?? '')"
+                                placeholder="Selecione um sistema"
+                            />
+                        </div>
+
+                        <div class="col-span-12 md:col-span-6 lg:col-span-4">
                             <label for="transactions-search" class="mb-2 block font-medium">Busca</label>
                             <p-iconfield class="w-full">
                                 <p-inputicon styleClass="pi pi-search" />
@@ -151,9 +177,15 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                     </div>
 
                     @if (errorMessage()) {
-                        <div class="rounded-border border border-red-200 bg-red-50 px-4 py-3 text-red-700 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div class="rounded-border border border-red-200 bg-red-50 px-4 py-3 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                             <span>{{ errorMessage() }}</span>
                             <p-button label="Tentar novamente" icon="pi pi-refresh" severity="danger" [text]="true" (onClick)="reloadTransactions()" />
+                        </div>
+                    }
+
+                    @if (selectedSystem(); as system) {
+                        <div class="rounded-border border border-surface-200 bg-surface-50 px-4 py-3 text-sm text-surface-600 dark:border-surface-700 dark:bg-surface-800/70 dark:text-surface-200">
+                            <span class="font-medium">Host selecionado:</span> {{ system.host }}
                         </div>
                     }
 
@@ -171,51 +203,95 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                             [showCurrentPageReport]="true"
                             currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} transacoes"
                             [rowHover]="true"
+                            [stripedRows]="true"
                             [scrollable]="true"
                             dataKey="id"
-                            styleClass="p-datatable-sm"
-                            [tableStyle]="{ 'min-width': '96rem' }"
+                            styleClass="p-datatable-sm transactions-table"
+                            [tableStyle]="{ 'min-width': '72rem' }"
                         >
                             <ng-template #header>
                                 <tr>
-                                    <th style="min-width: 10rem">Acoes</th>
-                                    <th style="min-width: 10rem">ID</th>
-                                    <th style="min-width: 10rem">ID lancamento</th>
-                                    <th style="min-width: 12rem">Reference</th>
-                                    <th style="min-width: 12rem">Empresa</th>
-                                    <th style="min-width: 12rem">Cliente</th>
-                                    <th style="min-width: 9rem">Valor</th>
-                                    <th style="min-width: 10rem">Status</th>
-                                    <th style="min-width: 11rem">Vencimento</th>
-                                    <th style="min-width: 11rem">Pix gerado</th>
-                                    <th style="min-width: 11rem">Pix expira</th>
-                                    <th style="min-width: 11rem">Criado em</th>
-                                    <th style="min-width: 12rem">TxID</th>
+                                    <th style="width: 1%">Acoes</th>
+                                    <th style="width: 1%">Status</th>
+                                    <th style="width: 1%">Criado em</th>
+                                    <th style="width: 1%">Expira em</th>
+                                    <th style="width: 1%">Valor</th>
+                                    <th style="width: 1%">Cliente</th>
+                                    <th style="width: 1%">Empresa</th>
+                                    <th style="width: 1%">Reference</th>
+                                    <th style="width: 1%">Tipo</th>
+                                    <th style="width: 1%">ID</th>
+                                    <th style="width: 1%">ID Ref.</th>
+                                    <th style="width: 1%">Status Titulo Ref.</th>
+                                    <th style="width: 1%">Vencimento Ref.</th>
                                 </tr>
                             </ng-template>
 
                             <ng-template #body let-transaction>
-                                <tr class="cursor-pointer" (click)="openDetails(transaction)">
+                                <tr>
                                     <td>
-                                        <p-button
-                                            label="Consultar"
-                                            icon="pi pi-search"
-                                            size="small"
-                                            severity="secondary"
-                                            [outlined]="true"
-                                            [disabled]="!hasTransactionId(transaction)"
-                                            (onClick)="consultPayment(transaction, $event)"
-                                        />
+                                        <div class="flex items-center gap-1 whitespace-nowrap">
+                                            <p-button
+                                                icon="pi pi-eye"
+                                                size="small"
+                                                severity="secondary"
+                                                [outlined]="true"
+                                                [disabled]="!hasTransactionId(transaction)"
+                                                pTooltip="Abrir detalhes e consultar pagamento"
+                                                tooltipPosition="top"
+                                                (onClick)="consultPayment(transaction, $event)"
+                                            />
+                                            <app-pix-share-link
+                                                [data]="buildTransactionShareData(transaction)"
+                                                [showLabels]="false"
+                                            />
+                                        </div>
                                     </td>
                                     <td>
+                                        <p-tag [value]="getTransactionStatus(transaction)" [severity]="getStatusSeverity(getTransactionStatus(transaction))" />
+                                    </td>
+                                    <td>{{ formatTableDate(transaction.createdAt) }}</td>
+                                    <td>
+                                        <span
+                                            [ngClass]="getExpirationClass(transaction.pixExpiraEm)"
+                                            [pTooltip]="getExpirationTooltip(transaction.pixExpiraEm)"
+                                            tooltipPosition="top"
+                                        >
+                                            {{ getExpirationCountdown(transaction.pixExpiraEm) }}
+                                        </span>
+                                    </td>
+                                    <td>{{ formatCurrency(transaction.valor) }}</td>
+                                    <td>{{ getDisplayValue(transaction.clienteNome) }}</td>
+                                    <td>{{ getDisplayValue(transaction.empresa) }}</td>
+                                    <td>
                                         <div class="flex items-center gap-2 min-w-0">
-                                            <span class="block truncate" style="max-width: 8rem" [title]="getDisplayValue(transaction.id)">
-                                                {{ getDisplayValue(transaction.id) }}
+                                            <span class="block truncate" style="max-width: 10rem" [title]="getDisplayValue(transaction.reference)">
+                                                {{ truncateReference(transaction.reference) }}
                                             </span>
                                             <p-button
                                                 icon="pi pi-copy"
                                                 size="small"
                                                 severity="secondary"
+                                                styleClass="table-copy-button"
+                                                [text]="true"
+                                                [rounded]="true"
+                                                [ariaLabel]="getCopiedLabel(getTableCopyKey('reference', transaction.id), 'Copiar reference')"
+                                                [disabled]="!hasCopyableValue(transaction.reference)"
+                                                (onClick)="copyTextValue(getTableCopyKey('reference', transaction.id), transaction.reference, $event)"
+                                            />
+                                        </div>
+                                    </td>
+                                    <td>{{ getTransactionTypeLabel(transaction.tipoTransacao) }}</td>
+                                    <td>
+                                        <div class="flex items-center gap-1 min-w-0">
+                                            <span class="font-mono text-sm" [title]="getDisplayValue(transaction.id)">
+                                                {{ truncateId(transaction.id) }}
+                                            </span>
+                                            <p-button
+                                                icon="pi pi-copy"
+                                                size="small"
+                                                severity="secondary"
+                                                styleClass="table-copy-button"
                                                 [text]="true"
                                                 [rounded]="true"
                                                 [ariaLabel]="getCopiedLabel(getTableCopyKey('id', transaction.id), 'Copiar ID')"
@@ -225,50 +301,8 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                                         </div>
                                     </td>
                                     <td>{{ getDisplayValue(transaction.idLancamento) }}</td>
-                                    <td>
-                                        <div class="flex items-center gap-2 min-w-0">
-                                            <span class="block truncate" style="max-width: 10rem" [title]="getDisplayValue(transaction.reference)">
-                                                {{ getDisplayValue(transaction.reference) }}
-                                            </span>
-                                            <p-button
-                                                icon="pi pi-copy"
-                                                size="small"
-                                                severity="secondary"
-                                                [text]="true"
-                                                [rounded]="true"
-                                                [ariaLabel]="getCopiedLabel(getTableCopyKey('reference', transaction.id), 'Copiar reference')"
-                                                [disabled]="!hasCopyableValue(transaction.reference)"
-                                                (onClick)="copyTextValue(getTableCopyKey('reference', transaction.id), transaction.reference, $event)"
-                                            />
-                                        </div>
-                                    </td>
-                                    <td>{{ getDisplayValue(transaction.empresa) }}</td>
-                                    <td>{{ getDisplayValue(transaction.clienteNome) }}</td>
-                                    <td>{{ formatCurrency(transaction.valor) }}</td>
-                                    <td>
-                                        <p-tag [value]="getDisplayValue(transaction.statusTitulo)" [severity]="getStatusSeverity(transaction.statusTitulo)" />
-                                    </td>
+                                    <td>{{ getStatusTitleReferenceValue(transaction.statusTituloRef ?? transaction.statusTitulo) }}</td>
                                     <td>{{ formatTableDate(transaction.vencimentoTitulo) }}</td>
-                                    <td>{{ formatTableDate(transaction.pixGeradoEm) }}</td>
-                                    <td>{{ formatTableDate(transaction.pixExpiraEm) }}</td>
-                                    <td>{{ formatTableDate(transaction.createdAt) }}</td>
-                                    <td>
-                                        <div class="flex items-center gap-2 min-w-0">
-                                            <span class="block truncate" style="max-width: 10rem" [title]="getDisplayValue(transaction.txId)">
-                                                {{ getDisplayValue(transaction.txId) }}
-                                            </span>
-                                            <p-button
-                                                icon="pi pi-copy"
-                                                size="small"
-                                                severity="secondary"
-                                                [text]="true"
-                                                [rounded]="true"
-                                                [ariaLabel]="getCopiedLabel(getTableCopyKey('txId', transaction.id), 'Copiar TxID')"
-                                                [disabled]="!hasCopyableValue(transaction.txId)"
-                                                (onClick)="copyTextValue(getTableCopyKey('txId', transaction.id), transaction.txId, $event)"
-                                            />
-                                        </div>
-                                    </td>
                                 </tr>
                             </ng-template>
 
@@ -296,21 +330,39 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
         <p-dialog
             [visible]="detailsVisible()"
             (visibleChange)="detailsVisible.set($event)"
-            header="Detalhes da transacao"
             [modal]="true"
+            [dismissableMask]="true"
             [draggable]="false"
             [resizable]="false"
             [breakpoints]="{ '1280px': '90vw' }"
+            styleClass="transactions-dialog"
             [style]="{ width: '72rem', maxWidth: '96vw' }"
         >
+            <ng-template #header>
+                <div class="flex w-full flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div class="flex flex-col">
+                        <div class="text-lg font-semibold">Detalhes da transacao</div>
+                        @if (selectedTransaction(); as transaction) {
+                            <div class="text-sm text-surface-500">TxID: {{ getDisplayValue(transaction.txId) }}</div>
+                        }
+                    </div>
+                    @if (selectedTransaction(); as transaction) {
+                        <app-pix-share-link
+                            [data]="buildTransactionShareData(transaction)"
+                            copyLabel="Compartilhar transacao"
+                            openLabel="Abrir transacao"
+                        />
+                    }
+                </div>
+            </ng-template>
             <ng-template #content>
                 @if (selectedTransaction(); as transaction) {
                     <div class="flex flex-col gap-6">
-                        <div class="rounded-border border border-emerald-200 bg-emerald-50/60 p-5 flex flex-col gap-5">
+                        <div class="rounded-border border border-emerald-200 bg-emerald-50/60 p-5 flex flex-col gap-5 dark:border-emerald-800 dark:bg-emerald-950/25">
                             <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                 <div>
-                                    <div class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Dados do pagamento</div>
-                                    <div class="text-lg font-semibold text-emerald-950">Retorno da consulta no provedor PIX</div>
+                                    <div class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">Dados do pagamento</div>
+                                    <div class="text-lg font-semibold text-emerald-950 dark:text-emerald-100">Retorno da consulta no provedor PIX</div>
                                 </div>
                                 <div class="flex justify-end">
                                     <p-button
@@ -323,11 +375,11 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                             </div>
 
                             @if (paymentConsultationLoading()) {
-                                <div class="rounded-border border border-dashed border-emerald-300 bg-white/70 px-6 py-8 text-center text-emerald-800">
+                                <div class="rounded-border border border-dashed border-emerald-300 bg-white/70 px-6 py-8 text-center text-emerald-800 dark:border-emerald-800 dark:bg-surface-900/70 dark:text-emerald-100">
                                     Consultando pagamento...
                                 </div>
                             } @else if (paymentConsultationError()) {
-                                <div class="rounded-border border border-red-200 bg-red-50 px-4 py-3 text-red-700 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                <div class="rounded-border border border-red-200 bg-red-50 px-4 py-3 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                     <span>{{ paymentConsultationError() }}</span>
                                     <p-button
                                         label="Consultar novamente"
@@ -341,37 +393,37 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                             } @else if (paymentConsultationResult(); as payment) {
                                 <div class="grid grid-cols-12 gap-4">
                                     <div class="col-span-12 md:col-span-6">
-                                        <div class="rounded-border border border-emerald-200 bg-white p-4 h-full">
+                                        <div class="rounded-border border border-emerald-200 bg-white p-4 h-full dark:border-emerald-800 dark:bg-surface-900">
                                             <div class="text-sm text-surface-500 mb-2">TXID</div>
                                             <div class="font-semibold text-lg break-all">{{ getDisplayValue(payment.txId) }}</div>
                                         </div>
                                     </div>
                                     <div class="col-span-12 md:col-span-6">
-                                        <div class="rounded-border border border-emerald-200 bg-white p-4 h-full">
+                                        <div class="rounded-border border border-emerald-200 bg-white p-4 h-full dark:border-emerald-800 dark:bg-surface-900">
                                             <div class="text-sm text-surface-500 mb-2">Situacao</div>
                                             <p-tag [value]="getPaymentStatusLabel(payment)" [severity]="getPaymentStatusSeverity(payment)" />
                                         </div>
                                     </div>
                                     <div class="col-span-12 md:col-span-6">
-                                        <div class="rounded-border border border-emerald-200 bg-white p-4 h-full">
+                                        <div class="rounded-border border border-emerald-200 bg-white p-4 h-full dark:border-emerald-800 dark:bg-surface-900">
                                             <div class="text-sm text-surface-500 mb-2">Valor original</div>
                                             <div class="font-semibold text-lg">{{ formatCurrency(payment.originalAmount ?? payment.valor) }}</div>
                                         </div>
                                     </div>
                                     <div class="col-span-12 md:col-span-6">
-                                        <div class="rounded-border border border-emerald-200 bg-white p-4 h-full">
+                                        <div class="rounded-border border border-emerald-200 bg-white p-4 h-full dark:border-emerald-800 dark:bg-surface-900">
                                             <div class="text-sm text-surface-500 mb-2">Valor recebido</div>
                                             <div class="font-semibold text-lg">{{ formatCurrency(payment.receivedAmount) }}</div>
                                         </div>
                                     </div>
                                     <div class="col-span-12 md:col-span-6">
-                                        <div class="rounded-border border border-emerald-200 bg-white p-4 h-full">
+                                        <div class="rounded-border border border-emerald-200 bg-white p-4 h-full dark:border-emerald-800 dark:bg-surface-900">
                                             <div class="text-sm text-surface-500 mb-2">Data do pagamento</div>
                                             <div class="font-semibold text-lg">{{ formatDetailDate(payment.paymentDate) }}</div>
                                         </div>
                                     </div>
                                     <div class="col-span-12 md:col-span-6">
-                                        <div class="rounded-border border border-emerald-200 bg-white p-4 h-full">
+                                        <div class="rounded-border border border-emerald-200 bg-white p-4 h-full dark:border-emerald-800 dark:bg-surface-900">
                                             <div class="text-sm text-surface-500 mb-2">Tipo de pagamento</div>
                                             <div class="font-semibold text-lg">{{ getDisplayValue(payment.paymentType) }}</div>
                                         </div>
@@ -381,13 +433,13 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                                 @if (hasLegacyPaymentDetails(payment)) {
                                     <div class="grid grid-cols-12 gap-4">
                                         <div class="col-span-12 md:col-span-6">
-                                            <div class="rounded-border border border-emerald-200 bg-white p-4 h-full">
+                                            <div class="rounded-border border border-emerald-200 bg-white p-4 h-full dark:border-emerald-800 dark:bg-surface-900">
                                                 <div class="text-sm text-surface-500 mb-2">Descricao</div>
                                                 <div class="font-medium break-words">{{ getDisplayValue(payment.descricao) }}</div>
                                             </div>
                                         </div>
                                         <div class="col-span-12 md:col-span-6">
-                                            <div class="rounded-border border border-emerald-200 bg-white p-4 h-full">
+                                            <div class="rounded-border border border-emerald-200 bg-white p-4 h-full dark:border-emerald-800 dark:bg-surface-900">
                                                 <div class="text-sm text-surface-500 mb-2">Expiracao</div>
                                                 <div class="font-semibold text-lg">{{ formatDetailDate(payment.expiracaoEm) }}</div>
                                             </div>
@@ -396,21 +448,21 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
 
                                     <div class="grid grid-cols-12 gap-4">
                                         <div class="col-span-12">
-                                            <div class="rounded-border border border-emerald-200 bg-white p-4 h-full flex flex-col gap-3">
+                                            <div class="rounded-border border border-emerald-200 bg-white p-4 h-full flex flex-col gap-3 dark:border-emerald-800 dark:bg-surface-900">
                                                 <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                                     <div class="text-sm text-surface-500">Pix copia e cola do pagamento</div>
                                                     <p-button
-                                                        [label]="copiedValueKey() === 'payment' ? 'Copiado' : 'Copiar PIX'"
+                                                        [label]="getCopiedLabel('payment-pix', 'Copiar PIX')"
                                                         icon="pi pi-copy"
                                                         size="small"
                                                         severity="secondary"
                                                         [outlined]="true"
                                                         [disabled]="!getQrCodeValue(payment).trim()"
-                                                        (onClick)="copyPixValue('payment', payment, $event)"
+                                                        (onClick)="copyPixValue('payment-pix', payment, $event)"
                                                     />
                                                 </div>
                                                 @if (getQrCodeValue(payment).trim()) {
-                                                    <div class="rounded-border bg-surface-50 p-3 font-mono text-sm break-all min-h-24">
+                                                    <div class="rounded-border bg-surface-50 p-3 font-mono text-sm break-all min-h-24 dark:bg-surface-800/80">
                                                         {{ getQrCodeValue(payment) }}
                                                     </div>
                                                 } @else {
@@ -419,38 +471,39 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                                             </div>
                                         </div>
                                     </div>
+
                                 }
                             } @else {
-                                <div class="rounded-border border border-dashed border-emerald-300 bg-white/70 px-6 py-8 text-center text-emerald-800">
+                                <div class="rounded-border border border-dashed border-emerald-300 bg-white/70 px-6 py-8 text-center text-emerald-800 dark:border-emerald-800 dark:bg-surface-900/70 dark:text-emerald-100">
                                     Execute a consulta para carregar os dados do pagamento separados dos dados da transacao.
                                 </div>
                             }
                         </div>
 
-                        <div class="rounded-border border border-surface-200 bg-surface-0 p-5 flex flex-col gap-5">
+                        <div class="rounded-border border border-surface-200 bg-surface-0 p-5 flex flex-col gap-5 dark:border-surface-700 dark:bg-surface-900">
                             <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
                                 <div>
                                     <div class="text-xs font-semibold uppercase tracking-[0.2em] text-surface-500">Dados da transacao</div>
-                                    <div class="text-lg font-semibold text-surface-900">Registro interno e cobranca gerada</div>
+                                    <div class="text-lg font-semibold text-surface-900 dark:text-surface-0">Registro interno e cobranca gerada</div>
                                 </div>
                                 <div class="text-sm text-surface-500">Campos salvos na transacao selecionada</div>
                             </div>
 
                             <div class="grid grid-cols-12 gap-4">
                                 <div class="col-span-12 md:col-span-4">
-                                    <div class="rounded-border border border-surface-200 p-4 h-full">
+                                    <div class="rounded-border border border-surface-200 bg-surface-0 p-4 h-full dark:border-surface-700 dark:bg-surface-900">
                                         <div class="text-sm text-surface-500 mb-2">Status</div>
-                                        <p-tag [value]="getDisplayValue(transaction.statusTitulo)" [severity]="getStatusSeverity(transaction.statusTitulo)" />
+                                        <p-tag [value]="getTransactionStatus(transaction)" [severity]="getStatusSeverity(getTransactionStatus(transaction))" />
                                     </div>
                                 </div>
                                 <div class="col-span-12 md:col-span-4">
-                                    <div class="rounded-border border border-surface-200 p-4 h-full">
+                                    <div class="rounded-border border border-surface-200 bg-surface-0 p-4 h-full dark:border-surface-700 dark:bg-surface-900">
                                         <div class="text-sm text-surface-500 mb-2">Valor</div>
                                         <div class="font-semibold text-lg">{{ formatCurrency(transaction.valor) }}</div>
                                     </div>
                                 </div>
                                 <div class="col-span-12 md:col-span-4">
-                                    <div class="rounded-border border border-surface-200 p-4 h-full">
+                                    <div class="rounded-border border border-surface-200 bg-surface-0 p-4 h-full dark:border-surface-700 dark:bg-surface-900">
                                         <div class="text-sm text-surface-500 mb-2">Criado em</div>
                                         <div class="font-semibold text-lg">{{ formatDetailDate(transaction.createdAt) }}</div>
                                     </div>
@@ -459,12 +512,14 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                             <div class="grid grid-cols-12 gap-4">
                                 @for (entry of detailEntries(); track entry.field) {
                                     <div class="col-span-12 md:col-span-6">
-                                        <div class="rounded-border border border-surface-200 p-4 h-full">
+                                        <div class="rounded-border border border-surface-200 bg-surface-0 p-4 h-full dark:border-surface-700 dark:bg-surface-900">
                                             <div class="text-sm text-surface-500 mb-2">{{ entry.label }}</div>
-                                            @if (entry.field === 'statusTitulo') {
-                                                <p-tag [value]="getDisplayValue(entry.value)" [severity]="getStatusSeverity(entry.value)" />
+                                            @if (entry.field === 'status') {
+                                                <p-tag [value]="getTransactionStatusLabel(entry.value)" [severity]="getStatusSeverity(entry.value)" />
+                                            } @else if (entry.field === 'statusTituloRef' || entry.field === 'statusTitulo') {
+                                                <div class="font-medium break-words">{{ getStatusTitleReferenceValue(entry.value) }}</div>
                                             } @else if (isLargeTextField(entry.field)) {
-                                                <div class="max-h-40 overflow-auto rounded-border bg-surface-50 p-3 font-mono text-xs break-all">
+                                                <div class="max-h-40 overflow-auto rounded-border bg-surface-50 p-3 font-mono text-xs break-all dark:bg-surface-800/80">
                                                     {{ getDisplayValue(entry.value) }}
                                                 </div>
                                             } @else {
@@ -477,21 +532,21 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
 
                             <div class="grid grid-cols-12 gap-4">
                                 <div class="col-span-12">
-                                    <div class="rounded-border border border-surface-200 p-4 h-full flex flex-col gap-3">
+                                    <div class="rounded-border border border-surface-200 bg-surface-0 p-4 h-full flex flex-col gap-3 dark:border-surface-700 dark:bg-surface-900">
                                         <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                             <div class="text-sm text-surface-500">Pix copia e cola da transacao</div>
                                             <p-button
-                                                [label]="copiedValueKey() === 'transaction' ? 'Copiado' : 'Copiar PIX'"
+                                                [label]="getCopiedLabel('transaction-pix', 'Copiar PIX')"
                                                 icon="pi pi-copy"
                                                 size="small"
                                                 severity="secondary"
                                                 [outlined]="true"
                                                 [disabled]="!getQrCodeValue(transaction).trim()"
-                                                (onClick)="copyPixValue('transaction', transaction, $event)"
+                                                (onClick)="copyPixValue('transaction-pix', transaction, $event)"
                                             />
                                         </div>
                                         @if (getQrCodeValue(transaction).trim()) {
-                                            <div class="rounded-border bg-surface-50 p-3 font-mono text-sm break-all min-h-24">
+                                            <div class="rounded-border bg-surface-50 p-3 font-mono text-sm break-all min-h-24 dark:bg-surface-800/80">
                                                 {{ getQrCodeValue(transaction) }}
                                             </div>
                                         } @else {
@@ -500,6 +555,7 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                                     </div>
                                 </div>
                             </div>
+
                         </div>
                     </div>
                 }
@@ -508,9 +564,12 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
     `
 })
 export class Transactions implements OnInit {
+    private readonly appConfig = inject(AppConfigService);
     private readonly transactionsService = inject(TransactionsService);
     private readonly pixService = inject(PixService);
+    private readonly destroyRef = inject(DestroyRef);
 
+    readonly systems = this.appConfig.systems;
     readonly transactions = signal<TransactionDocument[]>([]);
     readonly loading = signal(false);
     readonly errorMessage = signal('');
@@ -522,15 +581,18 @@ export class Transactions implements OnInit {
     readonly paymentConsultationError = signal('');
     readonly paymentConsultationResult = signal<TransactionPaymentConsultationResponse | null>(null);
     readonly copiedValueKey = signal('');
+    readonly selectedSystemName = signal(this.systems[0]?.nome ?? '');
+    readonly now = signal(Date.now());
 
     private copyFeedbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    readonly selectedSystem = computed(() => this.systems.find((system) => system.nome === this.selectedSystemName()) ?? null);
 
     readonly filteredTransactions = computed(() => {
         const searchTerm = this.searchTerm().trim().toLowerCase();
         const statusFilter = this.statusFilter().trim().toLowerCase();
 
         return this.transactions().filter((transaction) => {
-            const matchesStatus = !statusFilter || this.normalizeText(transaction.statusTitulo) === statusFilter;
+            const matchesStatus = !statusFilter || this.normalizeText(this.getTransactionStatus(transaction)) === statusFilter;
             const matchesText =
                 !searchTerm ||
                 TEXT_FILTER_FIELDS.some((field) => {
@@ -545,7 +607,7 @@ export class Transactions implements OnInit {
         const statuses = Array.from(
             new Set(
                 this.transactions()
-                    .map((transaction) => transaction.statusTitulo?.trim())
+                    .map((transaction) => this.getTransactionStatus(transaction).trim())
                     .filter((status): status is string => Boolean(status))
             )
         ).sort((left, right) => left.localeCompare(right, 'pt-BR'));
@@ -590,14 +652,29 @@ export class Transactions implements OnInit {
     });
 
     ngOnInit(): void {
+        interval(1000)
+            .pipe(startWith(0), takeUntilDestroyed(this.destroyRef))
+            .subscribe(() => {
+                this.now.set(Date.now());
+            });
+
         this.reloadTransactions();
     }
 
     reloadTransactions(): void {
+        const system = this.selectedSystem();
+
+        if (!system) {
+            this.transactions.set([]);
+            this.loading.set(false);
+            this.errorMessage.set('Selecione um sistema para carregar as transacoes.');
+            return;
+        }
+
         this.loading.set(true);
         this.errorMessage.set('');
 
-        this.transactionsService.getTransactions().subscribe({
+        this.transactionsService.getTransactions(system.host).subscribe({
             next: (transactions) => {
                 this.transactions.set(this.sortTransactions(transactions));
                 this.loading.set(false);
@@ -607,6 +684,16 @@ export class Transactions implements OnInit {
                 this.errorMessage.set(getApiErrorMessage(error, 'Nao foi possivel carregar as transacoes.'));
             }
         });
+    }
+
+    onSystemChange(systemName: string): void {
+        this.selectedSystemName.set(systemName);
+        this.transactions.set([]);
+        this.selectedTransaction.set(null);
+        this.detailsVisible.set(false);
+        this.clearFilters();
+        this.resetPaymentConsultation();
+        this.reloadTransactions();
     }
 
     clearFilters(): void {
@@ -635,7 +722,9 @@ export class Transactions implements OnInit {
         this.paymentConsultationError.set('');
         this.paymentConsultationResult.set(null);
 
-        this.pixService.consultTransactionPayment(transactionId).subscribe({
+        const source$ = this.pixService.consultTransactionPayment(transactionId, this.selectedSystem()?.host);
+
+        source$.subscribe({
             next: (payment) => {
                 this.paymentConsultationResult.set(payment);
                 this.paymentConsultationLoading.set(false);
@@ -679,6 +768,18 @@ export class Transactions implements OnInit {
             return this.formatCurrency(value);
         }
 
+        if (field === 'status') {
+            return this.getTransactionStatusLabel(value);
+        }
+
+        if (field === 'statusTituloRef' || field === 'statusTitulo') {
+            return this.getStatusTitleReferenceValue(value);
+        }
+
+        if (field === 'tipoTransacao') {
+            return this.getTransactionTypeLabel(value);
+        }
+
         if (DATE_FIELDS.has(field)) {
             return this.formatDetailDate(value);
         }
@@ -714,6 +815,66 @@ export class Transactions implements OnInit {
         }
 
         return 'secondary';
+    }
+
+    getTransactionStatusLabel(status: unknown): string {
+        const normalizedStatus = this.normalizeText(status);
+
+        if (!normalizedStatus) {
+            return 'Criado';
+        }
+
+        return this.getDisplayValue(status);
+    }
+
+    getTransactionStatus(transaction: TransactionDocument): string {
+        return this.getTransactionStatusLabel(transaction.status);
+    }
+
+    getStatusTitleReferenceValue(value: unknown): string {
+        if (value === null || value === undefined) {
+            return '-';
+        }
+
+        const normalizedValue = String(value).trim();
+        return normalizedValue || '-';
+    }
+
+    getExpirationCountdown(value: unknown): string {
+        const timestamp = this.getTimestamp(value);
+
+        if (!timestamp) {
+            return '-';
+        }
+
+        const diff = timestamp - this.now();
+
+        if (diff <= 0) {
+            return 'Expirado';
+        }
+
+        return this.formatDuration(diff);
+    }
+
+    isExpired(value: unknown): boolean {
+        const timestamp = this.getTimestamp(value);
+        return Boolean(timestamp && timestamp <= this.now());
+    }
+
+    getExpirationClass(value: unknown): string {
+        return this.isExpired(value)
+            ? 'font-semibold text-red-600 dark:text-red-300'
+            : 'font-semibold text-green-600 dark:text-green-300';
+    }
+
+    getExpirationTooltip(value: unknown): string {
+        const absoluteDate = this.formatDetailDate(value);
+
+        if (absoluteDate === '-') {
+            return 'Expiracao nao informada';
+        }
+
+        return `Expira em ${absoluteDate}`;
     }
 
     getPaymentStatusLabel(payment: TransactionPaymentConsultationResponse): string {
@@ -752,6 +913,22 @@ export class Transactions implements OnInit {
         return typeof source.qrCode === 'string' ? source.qrCode : '';
     }
 
+    getTransactionTypeLabel(value: unknown): string {
+        return getPixTransactionTypeLabel(this.normalizeTransactionType(value));
+    }
+
+    truncateId(value: unknown): string {
+        const display = this.getDisplayValue(value);
+        if (display === '-') return display;
+        return display.length > 6 ? display.slice(0, 6) + '…' : display;
+    }
+
+    truncateReference(value: unknown): string {
+        const display = this.getDisplayValue(value);
+        if (display === '-') return display;
+        return display.length > 8 ? display.slice(0, 8) : display;
+    }
+
     hasCopyableValue(value: unknown): boolean {
         if (value === null || value === undefined) {
             return false;
@@ -770,6 +947,17 @@ export class Transactions implements OnInit {
 
     async copyPixValue(sourceKey: string, source: { qrCode?: unknown }, event?: Event): Promise<void> {
         await this.copyTextValue(sourceKey, this.getQrCodeValue(source), event);
+    }
+
+    buildTransactionShareData(transaction: TransactionDocument): PixShareLinkData {
+        return {
+            txId: transaction.txId,
+            qrCode: transaction.qrCode,
+            valor: transaction.valor,
+            vencimento: transaction.pixExpiraEm,
+            nome: transaction.nomeTitularContaRecebimento,
+            system: this.selectedSystem()?.nome
+        };
     }
 
     async copyTextValue(copyKey: string, value: unknown, event?: Event): Promise<void> {
@@ -854,10 +1042,69 @@ export class Transactions implements OnInit {
         return String(value).trim().toLowerCase();
     }
 
+    private normalizeTransactionType(value: unknown): PixTransactionType {
+        if (typeof value === 'string') {
+            const normalizedValue = value.trim().toUpperCase();
+
+            if (
+                normalizedValue === 'CONTAS_RECEBER' ||
+                normalizedValue === 'ADIANTAMENTO' ||
+                normalizedValue === 'ORCAMENTO' ||
+                normalizedValue === 'PEDIDO'
+            ) {
+                return normalizedValue;
+            }
+        }
+
+        return 'CONTAS_RECEBER';
+    }
+
+    private normalizeOptionalValue(value: unknown): string | number | null {
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        if (typeof value === 'string') {
+            const trimmedValue = value.trim();
+            return trimmedValue ? trimmedValue : null;
+        }
+
+        if (typeof value === 'number') {
+            return Number.isFinite(value) ? value : null;
+        }
+
+        const normalizedValue = String(value).trim();
+        return normalizedValue ? normalizedValue : null;
+    }
+
     private formatDate(value: unknown, formatter: Intl.DateTimeFormat): string {
         const timestamp = this.getTimestamp(value);
 
         return timestamp ? formatter.format(timestamp) : '-';
+    }
+
+    private formatDuration(milliseconds: number): string {
+        const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+        const totalMinutes = Math.floor(totalSeconds / 60);
+        const totalHours = Math.floor(totalMinutes / 60);
+        const days = Math.floor(totalHours / 24);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        const seconds = totalSeconds % 60;
+
+        if (days > 0) {
+            return `${days}d ${String(totalHours % 24).padStart(2, '0')}h`;
+        }
+
+        if (hours > 0) {
+            return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+        }
+
+        if (minutes > 0) {
+            return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+        }
+
+        return `${seconds}s`;
     }
 
     private getTimestamp(value: unknown): number {

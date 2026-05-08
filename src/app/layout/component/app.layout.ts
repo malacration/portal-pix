@@ -1,50 +1,51 @@
-import { Component, computed, effect, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { AppTopbar } from './app.topbar';
-import { AppSidebar } from './app.sidebar';
 import { AppFooter } from './app.footer';
-import { LayoutService } from '@/app/layout/service/layout.service';
+import { AppConfigService } from '@/app/core/config/app-config.service';
 
 @Component({
     selector: 'app-layout',
     standalone: true,
-    imports: [CommonModule, AppTopbar, AppSidebar, RouterModule, AppFooter],
-    template: `<div class="layout-wrapper" [ngClass]="containerClass()">
-        <app-topbar></app-topbar>
-        <app-sidebar></app-sidebar>
-        <div class="layout-main-container">
-            <div class="layout-main">
-                <router-outlet></router-outlet>
+    imports: [CommonModule, AppTopbar, RouterModule, AppFooter],
+    template: `
+        <div class="layout-wrapper">
+            <app-topbar></app-topbar>
+            <div class="layout-main-container">
+                <div class="layout-main">
+                    <router-outlet></router-outlet>
+                </div>
+                <app-footer></app-footer>
             </div>
-            <app-footer></app-footer>
         </div>
-        <div class="layout-mask"></div>
-    </div> `
+        @if (isHomologation()) {
+            <div class="homolog-ribbon" aria-hidden="true">Homologação</div>
+        }
+    `,
+    styles: [`
+        .homolog-ribbon {
+            position: fixed;
+            top: 26px;
+            right: -38px;
+            width: 170px;
+            padding: 6px 0;
+            background: #d97706;
+            color: #fff;
+            font-size: 0.68rem;
+            font-weight: 800;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            transform: rotate(45deg);
+            z-index: 9999;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+            pointer-events: none;
+            user-select: none;
+        }
+    `]
 })
 export class AppLayout {
-    layoutService = inject(LayoutService);
-
-    constructor() {
-        effect(() => {
-            const state = this.layoutService.layoutState();
-            if (state.mobileMenuActive) {
-                document.body.classList.add('blocked-scroll');
-            } else {
-                document.body.classList.remove('blocked-scroll');
-            }
-        });
-    }
-
-    containerClass = computed(() => {
-        const config = this.layoutService.layoutConfig();
-        const state = this.layoutService.layoutState();
-        return {
-            'layout-overlay': config.menuMode === 'overlay',
-            'layout-static': config.menuMode === 'static',
-            'layout-static-inactive': state.staticMenuDesktopInactive && config.menuMode === 'static',
-            'layout-overlay-active': state.overlayMenuActive,
-            'layout-mobile-active': state.mobileMenuActive
-        };
-    })
+    private readonly appConfig = inject(AppConfigService);
+    readonly isHomologation = this.appConfig.isHomologation;
 }

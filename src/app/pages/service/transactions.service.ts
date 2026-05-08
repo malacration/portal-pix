@@ -2,10 +2,15 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { AppConfigService } from '@/app/core/config/app-config.service';
+import { PixTransactionType } from '@/app/core/models/pix-transaction-type';
 
 export interface TransactionDocument {
     id?: string | null;
     idLancamento?: string | number | null;
+    tipoTransacao?: PixTransactionType | null;
+    status?: string | null;
+    statusTituloRef?: string | null;
+    statusTitulo?: string | null;
     txId?: string | null;
     reference?: string | null;
     empresa?: string | null;
@@ -13,7 +18,6 @@ export interface TransactionDocument {
     clienteNome?: string | null;
     clienteCodigo?: string | number | null;
     valor?: number | string | null;
-    statusTitulo?: string | null;
     descricao?: string | null;
     numeroParcela?: number | string | null;
     vencimentoTitulo?: string | null;
@@ -35,19 +39,19 @@ export class TransactionsService {
     private readonly http = inject(HttpClient);
     private readonly appConfig = inject(AppConfigService);
 
-    getTransactions(): Observable<TransactionDocument[]> {
-        return this.http.get<TransactionDocument[]>(this.getEndpoint());
+    getTransactions(host?: string): Observable<TransactionDocument[]> {
+        return this.http.get<TransactionDocument[]>(this.getEndpoint(host));
     }
 
-    getTransaction(id: string): Observable<TransactionDocument> {
-        return this.http.get<TransactionDocument>(`${this.getEndpoint()}/${encodeURIComponent(id)}`);
+    getTransaction(id: string, host?: string): Observable<TransactionDocument> {
+        return this.http.get<TransactionDocument>(`${this.getEndpoint(host)}/${encodeURIComponent(id)}`);
     }
 
-    getTransactionsByStatus(status: string): Observable<TransactionDocument[]> {
-        return this.http.get<TransactionDocument[]>(`${this.getEndpoint()}/status/${encodeURIComponent(status)}`);
+    getTransactionsByStatus(status: string, host?: string): Observable<TransactionDocument[]> {
+        return this.http.get<TransactionDocument[]>(`${this.getEndpoint(host)}/status/${encodeURIComponent(status)}`);
     }
 
-    private getEndpoint(): string {
-        return this.appConfig.buildBackendUrl('/api/transactions');
+    private getEndpoint(host?: string): string {
+        return host ? this.appConfig.buildUrlFromHost(host, '/api/transactions') : this.appConfig.buildBackendUrl('/api/transactions');
     }
 }

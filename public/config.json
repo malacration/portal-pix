@@ -1,0 +1,38 @@
+{
+    "backendHost": "http://localhost:8080",
+    "keycloak": {
+        "enabled": true,
+        "url": "https://cadastrohml.sustennutri.com.br",
+        "realm": "rovema",
+        "clientId": "portal-pix",
+        "onLoad": "check-sso",
+        "silentCheckSsoRedirectUri": "/silent-check-sso.html",
+        "checkLoginIframe": false,
+        "bearerExcludedUrls": [
+            "/config",
+            "/config.json",
+            "/pix/share/verify"
+        ]
+    },
+    "sistemas": [
+        {
+            "nome": "dealerworkflow",
+            "host": "http://localhost:8080",
+            "cnpjFavorecido": "",
+            "nomeFavorecido": "",
+            "valoresSistema": {},
+            "operacoes": [
+                {
+                    "nome": "Pix Contas a Receber",
+                    "componente": "pixContasReceber",
+                    "tipoTransacao": "CONTAS_RECEBER"
+                },
+                {
+                    "nome": "Adiantamento Cliente",
+                    "componente": "adiantamentoCliente",
+                    "tipoTransacao": "ADIANTAMENTO"
+                }
+            ]
+        }
+    ]
+}

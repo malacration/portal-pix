@@ -1,19 +1,13 @@
 import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Component, computed, inject, PLATFORM_ID, signal } from '@angular/core';
+import { Component, computed, inject, PLATFORM_ID } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
 import { $t, updatePreset, updateSurfacePalette } from '@primeuix/themes';
 import Aura from '@primeuix/themes/aura';
-import Lara from '@primeuix/themes/lara';
-import Nora from '@primeuix/themes/nora';
 import { PrimeNG } from 'primeng/config';
-import { SelectButtonModule } from 'primeng/selectbutton';
 import { LayoutService } from '@/app/layout/service/layout.service';
 
 const presets = {
-    Aura,
-    Lara,
-    Nora
+    Aura
 } as const;
 
 declare type KeyOfType<T> = keyof T extends infer U ? U : never;
@@ -39,7 +33,7 @@ declare type SurfacesType = {
 @Component({
     selector: 'app-configurator',
     standalone: true,
-    imports: [CommonModule, FormsModule, SelectButtonModule],
+    imports: [CommonModule, FormsModule],
     template: `
         <div class="flex flex-col gap-4">
             <div>
@@ -81,14 +75,6 @@ declare type SurfacesType = {
                     }
                 </div>
             </div>
-            <div class="flex flex-col gap-2">
-                <span class="text-sm text-muted-color font-semibold">Presets</span>
-                <p-selectbutton [options]="presets" [ngModel]="selectedPreset()" (ngModelChange)="onPresetChange($event)" [allowEmpty]="false" size="small" />
-            </div>
-            <div *ngIf="showMenuModeButton()" class="flex flex-col gap-2">
-                <span class="text-sm text-muted-color font-semibold">Menu Mode</span>
-                <p-selectbutton [ngModel]="menuMode()" (ngModelChange)="onMenuModeChange($event)" [options]="menuModeOptions" [allowEmpty]="false" size="small" />
-            </div>
         </div>
     `,
     host: {
@@ -96,8 +82,6 @@ declare type SurfacesType = {
     }
 })
 export class AppConfigurator {
-    router = inject(Router);
-
     config: PrimeNG = inject(PrimeNG);
 
     layoutService: LayoutService = inject(LayoutService);
@@ -105,15 +89,6 @@ export class AppConfigurator {
     platformId = inject(PLATFORM_ID);
 
     primeng = inject(PrimeNG);
-
-    presets = Object.keys(presets);
-
-    showMenuModeButton = signal(!this.router.url.includes('auth'));
-
-    menuModeOptions = [
-        { label: 'Static', value: 'static' },
-        { label: 'Overlay', value: 'overlay' }
-    ];
 
     ngOnInit() {
         if (isPlatformBrowser(this.platformId)) {
@@ -265,10 +240,6 @@ export class AppConfigurator {
     });
 
     selectedSurfaceColor = computed(() => this.layoutService.layoutConfig().surface);
-
-    selectedPreset = computed(() => this.layoutService.layoutConfig().preset);
-
-    menuMode = computed(() => this.layoutService.layoutConfig().menuMode);
 
     primaryColors = computed<SurfacesType[]>(() => {
         const presetPalette = presets[this.layoutService.layoutConfig().preset as KeyOfType<typeof presets>].primitive;
@@ -440,7 +411,4 @@ export class AppConfigurator {
         $t().preset(preset).preset(this.getPresetExt()).surfacePalette(surfacePalette).use({ useDefaultOptions: true });
     }
 
-    onMenuModeChange(event: string) {
-        this.layoutService.layoutConfig.update((prev) => ({ ...prev, menuMode: event }));
-    }
 }

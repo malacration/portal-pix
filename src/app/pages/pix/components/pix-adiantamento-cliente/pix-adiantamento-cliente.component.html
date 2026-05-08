@@ -1,0 +1,66 @@
+<div class="card flex flex-col gap-6">
+    <div class="flex flex-col gap-2">
+        <div class="font-semibold text-xl">{{ operationConfig.nome }}</div>
+        <p class="m-0 text-surface-500">Informe o ID do cliente para gerar o PIX de adiantamento.</p>
+    </div>
+
+    <p-fluid>
+        <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-2">
+                <label for="branchId" class="font-medium">Filial</label>
+                <p-select
+                    inputId="branchId"
+                    class="w-full"
+                    [options]="branches()"
+                    optionLabel="label"
+                    optionValue="id"
+                    [(ngModel)]="branchId"
+                    [loading]="branchesLoading()"
+                    [disabled]="loading() || branchesLoading()"
+                    placeholder="Selecione a filial"
+                />
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <label for="idCliente" class="font-medium">ID do cliente</label>
+                <input
+                    pInputText
+                    id="idCliente"
+                    type="text"
+                    [(ngModel)]="idCliente"
+                    [disabled]="loading()"
+                    placeholder="Ex.: cliente-123"
+                />
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <label for="valorAdiantamento" class="font-medium">Valor</label>
+                <p-inputnumber
+                    id="valorAdiantamento"
+                    [(ngModel)]="valor"
+                    [disabled]="loading()"
+                    mode="currency"
+                    currency="BRL"
+                    locale="pt-BR"
+                    placeholder="R$ 0,00"
+                    inputStyleClass="w-full"
+                    styleClass="w-full"
+                />
+            </div>
+
+            <p-button
+                label="Gerar PIX"
+                icon="pi pi-qrcode"
+                [loading]="loading()"
+                [disabled]="!idCliente.trim() || !branchId.trim() || branchesLoading()"
+                (onClick)="generatePix()"
+            />
+        </div>
+    </p-fluid>
+
+    @if (errorMessage()) {
+        <div class="rounded-border border border-red-200 bg-red-50 px-4 py-3 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200">
+            {{ errorMessage() }}
+        </div>
+    }
+</div>

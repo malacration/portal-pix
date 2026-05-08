@@ -1,0 +1,43 @@
+name: Deploy Angular App
+
+on:
+  release:
+    types: [ created ]
+
+permissions:
+  contents: write
+    
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build Angular app
+      run: npm run build -- --configuration production --output-hashing=all --base-href /
+
+    - name: Archive build artifacts
+      run: |
+        cd dist/sakai-ng/browser
+        zip -r ./build.zip .
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./dist/sakai-ng/browser/build.zip
+        asset_name: build.zip
+        asset_content_type: application/zip

@@ -25,7 +25,7 @@ export class LayoutService {
         preset: 'Aura',
         primary: 'emerald',
         surface: null,
-        darkTheme: false,
+        darkTheme: true,
         menuMode: 'static'
     });
 
@@ -55,6 +55,8 @@ export class LayoutService {
     private initialized = false;
 
     constructor() {
+        this.toggleDarkMode(this.layoutConfig());
+
         effect(() => {
             const config = this.layoutConfig();
 
