@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: write
-    
 
 jobs:
   build:
@@ -15,6 +14,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        submodules: recursive
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
@@ -22,22 +23,18 @@ jobs:
         node-version: '22'
 
     - name: Install dependencies
-      run: npm install
+      run: npm ci
 
     - name: Build Angular app
-      run: npm run build -- --configuration production --output-hashing=all --base-href /
+      run: npm run build -- --configuration production --base-href /
 
     - name: Archive build artifacts
       run: |
         cd dist/sakai-ng/browser
-        zip -r ./build.zip .
+        zip -r ../../../build.zip .
 
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Attach asset na release
+      uses: softprops/action-gh-release@v2
       with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ./dist/sakai-ng/browser/build.zip
-        asset_name: build.zip
-        asset_content_type: application/zip
+        tag_name: ${{ github.event.release.tag_name }}
+        files: build.zip
