@@ -1,9 +1,10 @@
 {
     "backendHost": "http://localhost:8080",
+    "ambiente": "local",
     "keycloak": {
-        "enabled": true,
-        "url": "https://cadastrohml.sustennutri.com.br",
-        "realm": "rovema",
+        "enabled": false,
+        "url": "https://seu-keycloak.exemplo.com.br",
+        "realm": "seu-realm",
         "clientId": "portal-pix",
         "onLoad": "login-required",
         "checkLoginIframe": false,
@@ -15,7 +16,7 @@
     },
     "sistemas": [
         {
-            "nome": "dealerworkflow",
+            "nome": "seu-sistema",
             "host": "http://localhost:8080",
             "cnpjFavorecido": "",
             "nomeFavorecido": "",

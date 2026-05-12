@@ -1,0 +1,540 @@
+/* You can add global styles to this file, and also import other style files */
+@use 'primeicons/primeicons.css';
+@use '@/assets/layout/layout.scss';
+@use '@/assets/demo/demo.scss';
+
+.transactions-table .p-datatable-tbody > tr:nth-child(even) > td {
+    background: color-mix(in srgb, var(--surface-hover) 55%, var(--surface-card) 45%);
+}
+
+.transactions-table .p-datatable-tbody > tr:nth-child(odd) > td {
+    background: var(--surface-card);
+}
+
+.transactions-table .p-datatable-tbody > tr:hover > td {
+    background: var(--surface-hover) !important;
+}
+
+.transactions-table .p-datatable-thead > tr > th,
+.transactions-table .p-datatable-tbody > tr > td {
+    padding: 0.35rem 0.45rem;
+}
+
+.transactions-table .p-datatable-thead > tr > th {
+    white-space: nowrap;
+}
+
+.transactions-table .table-copy-button .p-button {
+    transition:
+        background-color 0.15s ease,
+        color 0.15s ease,
+        border-color 0.15s ease,
+        transform 0.15s ease;
+}
+
+.transactions-table .table-copy-button .p-button:not(:disabled):hover {
+    background: color-mix(in srgb, var(--primary-color) 16%, transparent);
+    color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+.app-dark .transactions-table .p-datatable-tbody > tr:nth-child(odd) > td {
+    background: color-mix(in srgb, var(--surface-card) 88%, black 12%);
+}
+
+.app-dark .transactions-table .p-datatable-tbody > tr:nth-child(even) > td {
+    background: color-mix(in srgb, var(--surface-card) 72%, var(--surface-hover) 28%);
+}
+
+.app-dark .transactions-dialog .p-dialog {
+    background: var(--surface-card);
+    color: var(--text-color);
+}
+
+.app-dark .transactions-dialog .p-dialog-header,
+.app-dark .transactions-dialog .p-dialog-content,
+.app-dark .transactions-dialog .p-dialog-footer {
+    background: var(--surface-card);
+    color: var(--text-color);
+}
+
+.app-dark .transactions-dialog .p-dialog-header {
+    border-bottom: 1px solid var(--surface-border);
+}
+
+.app-dark .transactions-dialog .p-dialog-content {
+    border-top: 0;
+}
+
+.pix-share-page-host {
+    --c-bg-start: color-mix(in srgb, var(--surface-ground) 94%, var(--primary-color) 6%);
+    --c-bg-end: var(--surface-ground);
+    --c-radial: color-mix(in srgb, var(--primary-color) 14%, transparent);
+    --c-text: var(--text-color);
+    --c-sub: var(--text-color-secondary);
+    --c-hint: var(--text-color-secondary);
+    --c-surface: color-mix(in srgb, var(--surface-card) 96%, transparent);
+    --c-border: var(--surface-border);
+    --c-shadow: rgba(15, 23, 42, 0.08);
+    --c-sub-amount: color-mix(in srgb, var(--primary-color) 58%, #f59e0b 42%);
+    --c-metric: color-mix(in srgb, var(--surface-card) 80%, var(--surface-ground) 20%);
+    --c-icon-bg: color-mix(in srgb, var(--primary-color) 14%, transparent);
+    --c-icon: var(--primary-color);
+    --c-icon-bad-bg: rgba(239, 68, 68, 0.1);
+    --c-icon-bad: #dc2626;
+    --c-label: var(--text-color-secondary);
+    --c-ok: var(--primary-color);
+    --c-bad: #dc2626;
+    --c-dim: var(--text-color-secondary);
+    --c-copy-bg: color-mix(in srgb, var(--surface-ground) 74%, var(--surface-card) 26%);
+    --c-copy-border: var(--surface-border);
+    --c-code: var(--text-color);
+    --c-btn: var(--primary-color);
+    --c-btn-hover: color-mix(in srgb, var(--primary-color) 90%, black 10%);
+    --c-btn-shadow: rgba(15, 23, 42, 0.12);
+    --c-btn-success: #15803d;
+    --c-btn-error: #dc2626;
+    --c-badge-bg: color-mix(in srgb, var(--primary-color) 12%, transparent);
+    --c-badge: var(--primary-color);
+    --c-empty-icon-bg: color-mix(in srgb, var(--primary-color) 10%, transparent);
+    --c-ex-bg: color-mix(in srgb, var(--surface-ground) 82%, var(--surface-card) 18%);
+    --c-ex-border: var(--surface-border);
+    --c-ex-code: var(--text-color);
+    display: block;
+    min-height: 100dvh;
+    background:
+        radial-gradient(ellipse at top, var(--c-radial), transparent 42%),
+        linear-gradient(180deg, var(--c-bg-start) 0%, var(--c-bg-end) 100%);
+    color: var(--c-text);
+}
+
+.pix-share-page-host .page {
+    padding: 24px 16px;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+}
+
+.pix-share-page-host .shell {
+    width: min(100%, 1040px);
+    display: grid;
+    gap: 1.25rem;
+    grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
+    align-items: stretch;
+}
+
+.pix-share-page-host .card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: 1.5rem;
+    padding: 1.75rem 1.5rem;
+    box-shadow: 0 10px 30px var(--c-shadow);
+    backdrop-filter: blur(8px);
+    height: 100%;
+}
+
+.pix-share-page-host .card--copy {
+    display: flex;
+    flex-direction: column;
+}
+
+.pix-share-page-host .badge {
+    display: inline-block;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    background: var(--c-badge-bg);
+    color: var(--c-badge);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.pix-share-page-host .title {
+    margin: 0.9rem 0 0.5rem;
+    font-size: clamp(1.65rem, 4vw, 2.4rem);
+    line-height: 1.08;
+    font-weight: 800;
+}
+
+.pix-share-page-host .title-emphasis {
+    color: var(--primary-color);
+}
+
+.pix-share-page-host .sub {
+    margin: 0;
+    color: var(--c-sub);
+    font-size: 0.88rem;
+    line-height: 1.65;
+}
+
+.pix-share-page-host .sub--info {
+    font-size: 0.85rem;
+}
+
+.pix-share-page-host .sub-amount {
+    display: block;
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: var(--c-sub-amount);
+    text-align: center;
+}
+
+.pix-share-page-host .qr {
+    position: relative;
+    margin-top: 1.5rem;
+    padding: 1rem;
+    border-radius: 1.25rem;
+    background: #fff;
+    border: 1px solid color-mix(in srgb, var(--surface-border) 70%, transparent);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+}
+
+.pix-share-page-host .qr-img {
+    line-height: 0;
+}
+
+.pix-share-page-host .qr-img--expired {
+    opacity: 0.15;
+    filter: blur(5px);
+    pointer-events: none;
+    user-select: none;
+}
+
+.pix-share-page-host .qr-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.78);
+    color: #dc2626;
+    font-weight: 700;
+    font-size: 0.88rem;
+    backdrop-filter: blur(2px);
+}
+
+.pix-share-page-host .qr-overlay--paid {
+    color: #15803d;
+}
+
+.pix-share-page-host .qr-hint {
+    margin: 0.8rem 0 0;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--c-hint);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+}
+
+.pix-share-page-host .btn--desktop-copy {
+    margin-top: 1rem;
+}
+
+.pix-share-page-host .metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 16px;
+    order: 1;
+}
+
+.pix-share-page-host .metric {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 0.85rem 0.9rem;
+    border-radius: 1rem;
+    background: var(--c-metric);
+    border: 1px solid color-mix(in srgb, var(--surface-border) 76%, transparent);
+}
+
+.pix-share-page-host .metric-icon {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--c-icon-bg);
+    color: var(--c-icon);
+    display: grid;
+    place-items: center;
+}
+
+.pix-share-page-host .metric-icon--bad {
+    background: var(--c-icon-bad-bg);
+    color: var(--c-icon-bad);
+}
+
+.pix-share-page-host .metric-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.pix-share-page-host .k {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--c-label);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-weight: 700;
+}
+
+.pix-share-page-host .v {
+    font-size: 0.97rem;
+    line-height: 1.3;
+    font-weight: 700;
+    word-break: break-word;
+}
+
+.pix-share-page-host .ok {
+    color: var(--c-ok);
+}
+
+.pix-share-page-host .bad {
+    color: var(--c-bad);
+}
+
+.pix-share-page-host .dim {
+    color: var(--c-dim);
+    font-weight: 500;
+}
+
+.pix-share-page-host .copy {
+    padding: 1rem;
+    border-radius: 1rem;
+    background: var(--c-copy-bg);
+    border: 1px solid var(--c-copy-border);
+    order: 2;
+}
+
+.pix-share-page-host .copy-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--c-label);
+    margin-bottom: 10px;
+}
+
+.pix-share-page-host .code {
+    margin: 0 0 14px;
+    color: var(--c-code);
+    font-size: 0.8rem;
+    line-height: 1.6;
+    word-break: break-all;
+    max-height: 76px;
+    overflow-y: auto;
+}
+
+.pix-share-page-host .btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 0.9rem;
+    padding: 0.9rem 1rem;
+    background: var(--c-btn);
+    color: #fff;
+    font-size: 0.94rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.18s, transform 0.1s, box-shadow 0.18s;
+    box-shadow: 0 2px 10px var(--c-btn-shadow);
+}
+
+.pix-share-page-host .btn:hover {
+    background: var(--c-btn-hover);
+    box-shadow: 0 4px 18px var(--c-btn-shadow);
+}
+
+.pix-share-page-host .btn:active {
+    transform: scale(0.98);
+}
+
+.pix-share-page-host .btn--success {
+    background: var(--c-btn-success) !important;
+}
+
+.pix-share-page-host .btn--error {
+    background: var(--c-btn-error) !important;
+    box-shadow: 0 2px 10px rgba(220, 38, 38, 0.3);
+}
+
+.pix-share-page-host .btn--copy {
+    margin-top: 0.9rem;
+}
+
+.pix-share-page-host .empty {
+    width: min(100%, 560px);
+    text-align: center;
+    padding: 48px 32px;
+}
+
+.pix-share-page-host .empty-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 1.25rem;
+    background: var(--c-empty-icon-bg);
+    color: var(--c-icon);
+    display: grid;
+    place-items: center;
+    margin: 0 auto 20px;
+}
+
+.pix-share-page-host .empty h1 {
+    margin: 0 0 12px;
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+
+.pix-share-page-host .empty p {
+    margin: 0;
+    color: var(--c-sub);
+    line-height: 1.7;
+}
+
+.pix-share-page-host .ex {
+    margin-top: 18px;
+    padding: 15px;
+    border-radius: 1rem;
+    background: var(--c-ex-bg);
+    border: 1px dashed var(--c-ex-border);
+    color: var(--c-ex-code);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    word-break: break-all;
+    text-align: left;
+}
+
+.pix-share-page-host .homolog-ribbon {
+    position: fixed;
+    top: 50%;
+    right: 14px;
+    transform: translateY(-50%);
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    padding: 14px 8px;
+    background: #d97706;
+    color: #fff;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    z-index: 9999;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+    pointer-events: none;
+    user-select: none;
+}
+
+@media (prefers-color-scheme: dark) {
+    .pix-share-page-host {
+        --c-bg-start: #0b1120;
+        --c-bg-end: #020617;
+        --c-radial: color-mix(in srgb, var(--primary-color) 18%, transparent);
+        --c-text: #e5e7eb;
+        --c-sub: #94a3b8;
+        --c-hint: #94a3b8;
+        --c-surface: rgba(9, 15, 28, 0.88);
+        --c-border: rgba(148, 163, 184, 0.18);
+        --c-shadow: rgba(0, 0, 0, 0.46);
+        --c-sub-amount: color-mix(in srgb, var(--primary-color) 54%, #fbbf24 46%);
+        --c-metric: rgba(9, 15, 28, 0.62);
+        --c-label: #94a3b8;
+        --c-dim: #94a3b8;
+        --c-copy-bg: rgba(9, 15, 28, 0.52);
+        --c-copy-border: rgba(148, 163, 184, 0.18);
+        --c-code: #f8fafc;
+        --c-btn-shadow: rgba(2, 6, 23, 0.32);
+        --c-ex-bg: rgba(9, 15, 28, 0.58);
+        --c-ex-border: rgba(148, 163, 184, 0.2);
+        --c-ex-code: #e5e7eb;
+        --c-btn-hover: color-mix(in srgb, var(--primary-color) 86%, white 14%);
+    }
+}
+
+.app-dark .pix-share-page-host {
+    --c-bg-start: #0b1120;
+    --c-bg-end: #020617;
+    --c-radial: color-mix(in srgb, var(--primary-color) 18%, transparent);
+    --c-text: #e5e7eb;
+    --c-sub: #94a3b8;
+    --c-hint: #94a3b8;
+    --c-surface: rgba(9, 15, 28, 0.88);
+    --c-border: rgba(148, 163, 184, 0.18);
+    --c-shadow: rgba(0, 0, 0, 0.46);
+    --c-sub-amount: color-mix(in srgb, var(--primary-color) 54%, #fbbf24 46%);
+    --c-metric: rgba(9, 15, 28, 0.62);
+    --c-label: #94a3b8;
+    --c-dim: #94a3b8;
+    --c-copy-bg: rgba(9, 15, 28, 0.52);
+    --c-copy-border: rgba(148, 163, 184, 0.18);
+    --c-code: #f8fafc;
+    --c-btn-shadow: rgba(2, 6, 23, 0.32);
+    --c-ex-bg: rgba(9, 15, 28, 0.58);
+    --c-ex-border: rgba(148, 163, 184, 0.2);
+    --c-ex-code: #e5e7eb;
+    --c-btn-hover: color-mix(in srgb, var(--primary-color) 86%, white 14%);
+}
+
+@media (max-width: 900px) {
+    .pix-share-page-host .page {
+        padding: 28px 20px;
+    }
+
+    .pix-share-page-host .shell {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .pix-share-page-host .card {
+        padding: 1.75rem 1.5rem;
+        height: auto;
+    }
+
+    .pix-share-page-host .card--hero .qr,
+    .pix-share-page-host .card--hero .qr-hint {
+        display: none;
+    }
+
+    .pix-share-page-host .copy {
+        padding: 1.25rem;
+    }
+
+    .pix-share-page-host .btn--copy {
+        margin-top: 0;
+        min-height: 3.5rem;
+        font-size: 1rem;
+        font-weight: 800;
+        border-radius: 1rem;
+        box-shadow: 0 10px 24px var(--c-btn-shadow);
+    }
+
+    .pix-share-page-host .code {
+        margin-top: 0.85rem;
+        margin-bottom: 0;
+        padding: 0.85rem 0.9rem;
+        border-radius: 0.85rem;
+        background: color-mix(in srgb, var(--c-copy-bg) 84%, transparent);
+        border: 1px solid color-mix(in srgb, var(--c-copy-border) 88%, transparent);
+        max-height: none;
+        overflow-y: visible;
+    }
+
+    .pix-share-page-host .homolog-ribbon {
+        right: 8px;
+        padding: 12px 6px;
+        font-size: 0.64rem;
+    }
+}
