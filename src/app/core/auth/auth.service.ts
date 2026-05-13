@@ -140,9 +140,9 @@ export class AuthService {
         }
     }
 
-    private buildInitOptions(config: AppKeycloakConfig): KeycloakInitOptions {
+    private buildInitOptions(_config: AppKeycloakConfig): KeycloakInitOptions {
         return {
-            onLoad: config.onLoad,
+            onLoad: 'check-sso',
             checkLoginIframe: false,
             pkceMethod: 'S256'
         };
