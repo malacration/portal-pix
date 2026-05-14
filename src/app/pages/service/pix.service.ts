@@ -45,6 +45,8 @@ export interface PixClienteAdvanceRequest {
     idCliente: string;
     branchId: string;
     valor: number | null;
+    departamentoCod: number | null;
+    tipoFichaRazaoCod: number | null;
 }
 
 export interface PixShareVerificationRequest {

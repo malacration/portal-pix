@@ -32,6 +32,33 @@ export class PixAdiantamentoClienteComponent implements OnInit, OnChanges {
     idCliente = '';
     branchId = '';
     valor: number | null = null;
+    departamentoCod: number | null = null;
+    tipoFichaRazaoCod: number | null = null;
+
+    readonly departamentos = [
+        { label: 'ADMINISTRAÇÃO', value: 1 },
+        { label: 'ASSISTÊNCIA TÉCNICA', value: 4 },
+        { label: 'AUTO CENTRO', value: 10 },
+        { label: 'FUNILARIA E PINTURA', value: 2 },
+        { label: 'MARKETING', value: 25 },
+        { label: 'OFICINA PRODUTIVO', value: 57 },
+        { label: 'PEÇAS E ACESSÓRIOS', value: 3 },
+        { label: 'VEÍCULOS NOVOS', value: 5 },
+        { label: 'VEÍCULOS USADOS', value: 6 },
+        { label: 'VENDA DIRETA', value: 7 }
+    ];
+
+    readonly tiposFichaRazao = [
+        { label: 'ADIANT DE CLIENTES (OUTROS)', value: 3 },
+        { label: 'ADIANT DE CLIENTES (PEÇAS)', value: 4 },
+        { label: 'ADIANT DE CLIENTES (VEÍCULOS)', value: 5 },
+        { label: 'ADIANT DE CLIENTES (VENDA DIRETA)', value: 6 },
+        { label: 'ADIANT DE CLIENTES (SERVIÇOS)', value: 10 },
+        { label: 'ADIANT DE CLIENTES (FUNILARIA)', value: 11 },
+        { label: 'ADIANT DE CLIENTE (MVP ATV)', value: 19 },
+        { label: 'ADIANT DE CLIENTES (BIONIO)', value: 21 },
+        { label: 'ADIANT RETORNO FINANCEIRO', value: 23 }
+    ];
 
     readonly branches = signal<BranchOption[]>([]);
     readonly branchesLoading = signal(false);
@@ -69,6 +96,8 @@ export class PixAdiantamentoClienteComponent implements OnInit, OnChanges {
         this.errorMessage.set('');
         this.lastSubmittedClientId.set('');
         this.branchId = '';
+        this.departamentoCod = null;
+        this.tipoFichaRazaoCod = null;
         this.branches.set([]);
         this.resultChange?.(null);
         this.loadBranches();
@@ -87,6 +116,20 @@ export class PixAdiantamentoClienteComponent implements OnInit, OnChanges {
 
         if (!branchId) {
             this.errorMessage.set('Selecione a filial para gerar o PIX de adiantamento.');
+            this.lastSubmittedClientId.set('');
+            this.resultChange?.(null);
+            return;
+        }
+
+        if (!this.departamentoCod) {
+            this.errorMessage.set('Selecione o departamento para gerar o PIX de adiantamento.');
+            this.lastSubmittedClientId.set('');
+            this.resultChange?.(null);
+            return;
+        }
+
+        if (!this.tipoFichaRazaoCod) {
+            this.errorMessage.set('Selecione o tipo de ficha razão para gerar o PIX de adiantamento.');
             this.lastSubmittedClientId.set('');
             this.resultChange?.(null);
             return;
@@ -134,7 +177,9 @@ export class PixAdiantamentoClienteComponent implements OnInit, OnChanges {
         return {
             idCliente,
             branchId,
-            valor: this.valor
+            valor: this.valor,
+            departamentoCod: this.departamentoCod,
+            tipoFichaRazaoCod: this.tipoFichaRazaoCod
         };
     }
 

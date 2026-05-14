@@ -140,12 +140,18 @@ export class AuthService {
         }
     }
 
-    private buildInitOptions(_config: AppKeycloakConfig): KeycloakInitOptions {
-        return {
-            onLoad: 'check-sso',
-            checkLoginIframe: false,
+    private buildInitOptions(config: AppKeycloakConfig): KeycloakInitOptions {
+        const options: KeycloakInitOptions = {
+            onLoad: config.onLoad,
+            checkLoginIframe: config.checkLoginIframe,
             pkceMethod: 'S256'
         };
+
+        if (config.silentCheckSsoRedirectUri) {
+            options.silentCheckSsoRedirectUri = this.resolveRedirectUri(config.silentCheckSsoRedirectUri);
+        }
+
+        return options;
     }
 
     private isKeycloakConfigured(config: AppKeycloakConfig): boolean {

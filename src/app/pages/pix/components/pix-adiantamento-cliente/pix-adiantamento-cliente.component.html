@@ -34,6 +34,34 @@
             </div>
 
             <div class="flex flex-col gap-2">
+                <label for="departamentoCod" class="font-medium">Departamento</label>
+                <p-select
+                    inputId="departamentoCod"
+                    class="w-full"
+                    [options]="departamentos"
+                    optionLabel="label"
+                    optionValue="value"
+                    [(ngModel)]="departamentoCod"
+                    [disabled]="loading()"
+                    placeholder="Selecione o departamento"
+                />
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <label for="tipoFichaRazaoCod" class="font-medium">Tipo Ficha Razão</label>
+                <p-select
+                    inputId="tipoFichaRazaoCod"
+                    class="w-full"
+                    [options]="tiposFichaRazao"
+                    optionLabel="label"
+                    optionValue="value"
+                    [(ngModel)]="tipoFichaRazaoCod"
+                    [disabled]="loading()"
+                    placeholder="Selecione o tipo de ficha razão"
+                />
+            </div>
+
+            <div class="flex flex-col gap-2">
                 <label for="valorAdiantamento" class="font-medium">Valor</label>
                 <p-inputnumber
                     id="valorAdiantamento"
@@ -52,7 +80,7 @@
                 label="Gerar PIX"
                 icon="pi pi-qrcode"
                 [loading]="loading()"
-                [disabled]="!idCliente.trim() || !branchId.trim() || branchesLoading()"
+                [disabled]="!idCliente.trim() || !branchId.trim() || !departamentoCod || !tipoFichaRazaoCod || branchesLoading()"
                 (onClick)="generatePix()"
             />
         </div>

@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, effect, inject } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { RippleModule } from 'primeng/ripple';
@@ -76,12 +76,14 @@ export class Login {
     protected readonly errorMessage = computed(() => this.authService.initError() ?? 'A configuração do Keycloak está incompleta. Revise public/config.json.');
 
     constructor() {
-        if (this.authService.isAuthenticated()) {
-            void this.router.navigateByUrl('/');
-        }
+        effect(() => {
+            if (this.authService.isReady() && this.authService.isAuthenticated()) {
+                void this.router.navigateByUrl('/');
+            }
+        });
     }
 
     protected async signIn(): Promise<void> {
-        await this.authService.login();
+        await this.authService.login('/');
     }
 }
