@@ -8,6 +8,8 @@ interface KeycloakTokenClaims {
     name?: string;
     given_name?: string;
     email?: string;
+    realm_access?: { roles?: string[] };
+    resource_access?: Record<string, { roles?: string[] }>;
 }
 
 @Injectable({
@@ -20,6 +22,7 @@ export class AuthService {
     private readonly initialized = signal(false);
     private readonly authenticated = signal(false);
     private readonly initializationError = signal<string | null>(null);
+    private readonly roles = signal<string[]>([]);
 
     private keycloak: Keycloak | null = null;
     private initPromise: Promise<void> | null = null;
@@ -27,6 +30,7 @@ export class AuthService {
     readonly isReady = this.initialized.asReadonly();
     readonly isAuthenticated = this.authenticated.asReadonly();
     readonly initError = this.initializationError.asReadonly();
+    readonly userRoles = this.roles.asReadonly();
     readonly isEnabled = computed(() => this.appConfig.keycloak.enabled);
     readonly hasValidConfiguration = computed(() => this.isKeycloakConfigured(this.appConfig.keycloak));
     readonly requiresAuthentication = computed(() => this.isEnabled() && this.hasValidConfiguration());
@@ -39,6 +43,16 @@ export class AuthService {
             ?? tokenParsed?.email
             ?? null;
     });
+
+    hasRole(role: string): boolean {
+        const normalizedRole = role.trim().toLowerCase();
+
+        if (!normalizedRole) {
+            return false;
+        }
+
+        return this.roles().some((current) => current.toLowerCase() === normalizedRole);
+    }
 
     async init(): Promise<void> {
         if (!this.initPromise) {
@@ -98,6 +112,7 @@ export class AuthService {
         try {
             await this.keycloak.updateToken(minValiditySeconds);
             this.authenticated.set(this.keycloak.authenticated ?? false);
+            this.roles.set(this.extractRoles());
             return this.keycloak.token ?? null;
         } catch (error) {
             console.error('Nao foi possivel renovar o token do Keycloak.', error);
@@ -131,13 +146,28 @@ export class AuthService {
         try {
             const authenticated = await this.keycloak.init(this.buildInitOptions(keycloakConfig));
             this.authenticated.set(authenticated);
+            this.roles.set(this.extractRoles());
         } catch (error) {
             console.error('Falha ao inicializar o Keycloak.', error);
             this.initializationError.set('Nao foi possivel inicializar a autenticacao Keycloak.');
             this.authenticated.set(false);
+            this.roles.set([]);
         } finally {
             this.initialized.set(true);
         }
+    }
+
+    private extractRoles(): string[] {
+        const tokenParsed = this.keycloak?.tokenParsed as KeycloakTokenClaims | undefined;
+
+        if (!tokenParsed) {
+            return [];
+        }
+
+        const realmRoles = tokenParsed.realm_access?.roles ?? [];
+        const clientRoles = Object.values(tokenParsed.resource_access ?? {}).flatMap((resource) => resource.roles ?? []);
+
+        return Array.from(new Set([...realmRoles, ...clientRoles].filter((role): role is string => typeof role === 'string' && role.trim().length > 0)));
     }
 
     private buildInitOptions(config: AppKeycloakConfig): KeycloakInitOptions {
