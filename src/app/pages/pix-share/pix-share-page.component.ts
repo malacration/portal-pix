@@ -375,7 +375,7 @@ export class PixSharePageComponent {
         return {
             txId,
             qrCode,
-            valor: this.normalizeNumber(payment.originalAmount ?? payment.valor),
+            valor: this.normalizeAmount(payment.originalAmount) ?? this.normalizeAmount(payment.valor),
             vencimento,
             vencimentoDate: vencimento ? this.normalizeDate(vencimento) : null,
             nome: this.normalizeString(payment.nomeRecebedor),
@@ -414,6 +414,11 @@ export class PixSharePageComponent {
 
         const trimmedValue = value.trim();
         return trimmedValue ? trimmedValue : null;
+    }
+
+    private normalizeAmount(value: unknown): number | null {
+        const parsed = this.normalizeNumber(value);
+        return parsed && parsed !== 0 ? parsed : null;
     }
 
     private normalizeNumber(value: unknown): number | null {

@@ -6,7 +6,7 @@
         "url": "https://seu-keycloak.exemplo.com.br",
         "realm": "seu-realm",
         "clientId": "portal-pix",
-        "onLoad": "login-required",
+        "onLoad": "check-sso",
         "silentCheckSsoRedirectUri": "/silent-check-sso.html",
         "checkLoginIframe": false,
         "bearerExcludedUrls": [
