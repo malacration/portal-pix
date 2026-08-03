@@ -51,6 +51,10 @@ export class TransactionsService {
         return this.http.get<TransactionDocument[]>(`${this.getEndpoint(host)}/status/${encodeURIComponent(status)}`);
     }
 
+    retrySettlement(id: string, host?: string): Observable<TransactionDocument> {
+        return this.http.post<TransactionDocument>(`${this.getEndpoint(host)}/${encodeURIComponent(id)}/retry-settlement`, {});
+    }
+
     private getEndpoint(host?: string): string {
         return host ? this.appConfig.buildUrlFromHost(host, '/api/transactions') : this.appConfig.buildBackendUrl('/api/transactions');
     }

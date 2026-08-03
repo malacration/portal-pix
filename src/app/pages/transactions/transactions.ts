@@ -14,6 +14,7 @@ import { SelectModule } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
+import { AuthService } from '@/app/core/auth/auth.service';
 import { AppConfigService } from '@/app/core/config/app-config.service';
 import { getPixTransactionTypeLabel, PixTransactionType } from '@/app/core/models/pix-transaction-type';
 import { PixShareLinkComponent, PixShareLinkData } from '@/app/shared/pix-share-link/pix-share-link.component';
@@ -245,6 +246,19 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                                                 [data]="buildTransactionShareData(transaction)"
                                                 [showLabels]="false"
                                             />
+                                            @if (canRetrySettlement() && isRetryableSettlement(transaction)) {
+                                                <p-button
+                                                    icon="pi pi-replay"
+                                                    size="small"
+                                                    severity="danger"
+                                                    [outlined]="true"
+                                                    [loading]="isRetryingSettlement(transaction)"
+                                                    [disabled]="!hasTransactionId(transaction)"
+                                                    pTooltip="Retentar baixa"
+                                                    tooltipPosition="top"
+                                                    (onClick)="retrySettlement(transaction, $event)"
+                                                />
+                                            }
                                         </div>
                                     </td>
                                     <td>
@@ -565,6 +579,7 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
 })
 export class Transactions implements OnInit {
     private readonly appConfig = inject(AppConfigService);
+    private readonly authService = inject(AuthService);
     private readonly transactionsService = inject(TransactionsService);
     private readonly pixService = inject(PixService);
     private readonly destroyRef = inject(DestroyRef);
@@ -583,9 +598,11 @@ export class Transactions implements OnInit {
     readonly copiedValueKey = signal('');
     readonly selectedSystemName = signal(this.systems[0]?.nome ?? '');
     readonly now = signal(Date.now());
+    readonly retryingTransactionIds = signal<ReadonlySet<string>>(new Set());
 
     private copyFeedbackTimeoutId: ReturnType<typeof setTimeout> | null = null;
     readonly selectedSystem = computed(() => this.systems.find((system) => system.nome === this.selectedSystemName()) ?? null);
+    readonly canRetrySettlement = computed(() => this.appConfig.features.retrySettlementEnabled && this.authService.hasRole('ADMIN'));
 
     readonly filteredTransactions = computed(() => {
         const searchTerm = this.searchTerm().trim().toLowerCase();
@@ -738,6 +755,38 @@ export class Transactions implements OnInit {
 
     hasTransactionId(transaction: TransactionDocument): boolean {
         return Boolean(this.getTransactionId(transaction));
+    }
+
+    isRetryableSettlement(transaction: TransactionDocument): boolean {
+        return this.normalizeText(transaction.status) === 'erro na baixa';
+    }
+
+    isRetryingSettlement(transaction: TransactionDocument): boolean {
+        const transactionId = this.getTransactionId(transaction);
+        return Boolean(transactionId) && this.retryingTransactionIds().has(transactionId);
+    }
+
+    retrySettlement(transaction: TransactionDocument, event?: Event): void {
+        event?.stopPropagation();
+
+        const transactionId = this.getTransactionId(transaction);
+
+        if (!transactionId || this.isRetryingSettlement(transaction)) {
+            return;
+        }
+
+        this.setRetrying(transactionId, true);
+
+        this.transactionsService.retrySettlement(transactionId, this.selectedSystem()?.host).subscribe({
+            next: (updatedTransaction) => {
+                this.applyTransactionUpdate(updatedTransaction);
+                this.setRetrying(transactionId, false);
+            },
+            error: (error: HttpErrorResponse) => {
+                this.errorMessage.set(getApiErrorMessage(error, 'Nao foi possivel retentar a baixa desta transacao.'));
+                this.setRetrying(transactionId, false);
+            }
+        });
     }
 
     getDisplayValue(value: unknown): string {
@@ -1018,6 +1067,32 @@ export class Transactions implements OnInit {
 
     private sortTransactions(transactions: TransactionDocument[]): TransactionDocument[] {
         return [...transactions].sort((left, right) => this.getTimestamp(right.createdAt) - this.getTimestamp(left.createdAt));
+    }
+
+    private setRetrying(transactionId: string, retrying: boolean): void {
+        const nextRetryingIds = new Set(this.retryingTransactionIds());
+
+        if (retrying) {
+            nextRetryingIds.add(transactionId);
+        } else {
+            nextRetryingIds.delete(transactionId);
+        }
+
+        this.retryingTransactionIds.set(nextRetryingIds);
+    }
+
+    private applyTransactionUpdate(updatedTransaction: TransactionDocument): void {
+        const updatedId = this.getTransactionId(updatedTransaction);
+
+        this.transactions.update((current) =>
+            this.sortTransactions(current.map((transaction) => (this.getTransactionId(transaction) === updatedId ? updatedTransaction : transaction)))
+        );
+
+        const selectedTransaction = this.selectedTransaction();
+
+        if (selectedTransaction && this.getTransactionId(selectedTransaction) === updatedId) {
+            this.selectedTransaction.set(updatedTransaction);
+        }
     }
 
     private getTransactionId(transaction: TransactionDocument): string {

@@ -6,6 +6,7 @@ import { AuthService } from '@/app/core/auth/auth.service';
 import { AppMenuitem } from './app.menuitem';
 
 const DEBUG_ROLE = 'debug';
+const ADMIN_ROLE = 'ADMIN';
 
 @Component({
     selector: 'app-menu',
@@ -43,7 +44,7 @@ export class AppMenu {
             }
         ];
 
-        if (this.authService.hasRole(DEBUG_ROLE)) {
+        if (this.authService.hasRole(DEBUG_ROLE) || this.authService.hasRole(ADMIN_ROLE)) {
             items.push({
                 label: 'Diagnostico',
                 items: [

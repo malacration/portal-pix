@@ -44,6 +44,12 @@ import { AppConfigurator } from './app.configurator';
                 <i class="pi pi-receipt"></i>
                 <span>Transações</span>
             </a>
+            @if (canSeeDebug()) {
+                <a routerLink="/debug" routerLinkActive="layout-topbar-nav-active" class="layout-topbar-nav-link">
+                    <i class="pi pi-wrench"></i>
+                    <span>Debug</span>
+                </a>
+            }
         </nav>
 
         <div class="layout-topbar-actions">
@@ -102,6 +108,12 @@ import { AppConfigurator } from './app.configurator';
                         <i class="pi pi-receipt"></i>
                         <span>Transações</span>
                     </a>
+                    @if (canSeeDebug()) {
+                        <a routerLink="/debug" routerLinkActive="layout-topbar-nav-active" class="layout-topbar-action">
+                            <i class="pi pi-wrench"></i>
+                            <span>Debug</span>
+                        </a>
+                    }
                     @if (showAuthenticatedUser()) {
                         <div class="layout-topbar-action pointer-events-none">
                             <i class="pi pi-user"></i>
@@ -124,6 +136,7 @@ export class AppTopbar {
     readonly authService = inject(AuthService);
     readonly showAuthenticatedUser = computed(() => this.authService.requiresAuthentication() && this.authService.isAuthenticated());
     readonly showLogoutButton = computed(() => this.showAuthenticatedUser());
+    readonly canSeeDebug = computed(() => this.authService.hasRole('debug') || this.authService.hasRole('ADMIN'));
 
     toggleDarkMode() {
         this.layoutService.layoutConfig.update((state) => ({

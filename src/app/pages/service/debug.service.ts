@@ -45,10 +45,10 @@ export class DebugService {
         return this.http.get<DebugArtifactsResponse>(this.buildUrl('/api/debug/artifacts', host));
     }
 
-    artifactUrl(fileName: string, download = false, host?: string): string {
+    getArtifactBlob(fileName: string, host?: string): Observable<Blob> {
         const path = `${this.buildUrl('/api/debug/artifacts/files', host)}/${encodeURIComponent(fileName)}`;
 
-        return download ? `${path}?download=true` : path;
+        return this.http.get(path, { responseType: 'blob' });
     }
 
     private buildUrl(path: string, host?: string): string {

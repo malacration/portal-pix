@@ -1,5 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, type UrlTree } from '@angular/router';
 import Keycloak, { type KeycloakInitOptions } from 'keycloak-js';
 import { AppConfigService, type AppKeycloakConfig } from '@/app/core/config/app-config.service';
 
@@ -16,6 +16,8 @@ interface KeycloakTokenClaims {
     providedIn: 'root'
 })
 export class AuthService {
+    private static readonly LOGIN_ATTEMPT_KEY = 'kc-login-attempt';
+
     private readonly appConfig = inject(AppConfigService);
     private readonly router = inject(Router);
 
@@ -62,7 +64,7 @@ export class AuthService {
         await this.initPromise;
     }
 
-    async ensureAuthenticated(redirectUrl?: string): Promise<boolean> {
+    async ensureAuthenticated(redirectUrl?: string): Promise<boolean | UrlTree> {
         await this.init();
 
         if (!this.requiresAuthentication()) {
@@ -70,7 +72,18 @@ export class AuthService {
         }
 
         if (this.isAuthenticated()) {
+            this.clearLoginAttempt();
             return true;
+        }
+
+        // Voltamos de uma tentativa de login e ainda nao estamos autenticados:
+        // redirecionar novamente causaria um loop infinito. Interrompe e mostra o erro.
+        if (this.hasPendingLoginAttempt()) {
+            this.clearLoginAttempt();
+            this.initializationError.set(
+                'Nao foi possivel concluir o login. Verifique a configuracao do Keycloak (redirect URIs e web origins do client) e se o navegador nao esta bloqueando cookies.'
+            );
+            return this.router.parseUrl('/auth/error');
         }
 
         await this.login(redirectUrl);
@@ -83,6 +96,8 @@ export class AuthService {
         if (!this.keycloak) {
             return;
         }
+
+        this.markLoginAttempt();
 
         await this.keycloak.login({
             redirectUri: this.resolveRedirectUri(redirectUrl)
@@ -147,6 +162,10 @@ export class AuthService {
             const authenticated = await this.keycloak.init(this.buildInitOptions(keycloakConfig));
             this.authenticated.set(authenticated);
             this.roles.set(this.extractRoles());
+
+            if (authenticated) {
+                this.clearLoginAttempt();
+            }
         } catch (error) {
             console.error('Falha ao inicializar o Keycloak.', error);
             this.initializationError.set('Nao foi possivel inicializar a autenticacao Keycloak.');
@@ -154,6 +173,30 @@ export class AuthService {
             this.roles.set([]);
         } finally {
             this.initialized.set(true);
+        }
+    }
+
+    private markLoginAttempt(): void {
+        try {
+            sessionStorage.setItem(AuthService.LOGIN_ATTEMPT_KEY, String(Date.now()));
+        } catch {
+            // sessionStorage indisponivel (modo privado/SSR): a protecao de loop e apenas best-effort.
+        }
+    }
+
+    private clearLoginAttempt(): void {
+        try {
+            sessionStorage.removeItem(AuthService.LOGIN_ATTEMPT_KEY);
+        } catch {
+            // Ignora indisponibilidade do sessionStorage.
+        }
+    }
+
+    private hasPendingLoginAttempt(): boolean {
+        try {
+            return sessionStorage.getItem(AuthService.LOGIN_ATTEMPT_KEY) !== null;
+        } catch {
+            return false;
         }
     }
 

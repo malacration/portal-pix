@@ -29,11 +29,16 @@ export interface AppKeycloakConfig {
     bearerExcludedUrls: string[];
 }
 
+export interface AppFeaturesConfig {
+    retrySettlementEnabled: boolean;
+}
+
 export interface AppConfig {
     backendHost: string;
     ambiente: string;
     sistemas: AppSystemConfig[];
     keycloak: AppKeycloakConfig;
+    features: AppFeaturesConfig;
 }
 
 const DEFAULT_BACKEND_HOST = 'http://localhost:8080';
@@ -47,11 +52,15 @@ const DEFAULT_KEYCLOAK_CONFIG: AppKeycloakConfig = {
     checkLoginIframe: false,
     bearerExcludedUrls: ['/config', '/config.json']
 };
+const DEFAULT_FEATURES_CONFIG: AppFeaturesConfig = {
+    retrySettlementEnabled: false
+};
 
 const DEFAULT_APP_CONFIG: AppConfig = {
     backendHost: DEFAULT_BACKEND_HOST,
     ambiente: 'production',
     keycloak: DEFAULT_KEYCLOAK_CONFIG,
+    features: DEFAULT_FEATURES_CONFIG,
     sistemas: [
         {
             nome: 'dealerworkflow',
@@ -124,6 +133,10 @@ export class AppConfigService {
         return this.config().keycloak;
     }
 
+    get features(): AppFeaturesConfig {
+        return this.config().features;
+    }
+
     readonly isHomologation = computed(() => this.config().ambiente === 'homologation');
 
     findSystemByName(systemName: string | null | undefined): AppSystemConfig | null {
@@ -176,12 +189,26 @@ export class AppConfigService {
         const ambiente = typeof config?.ambiente === 'string' ? config.ambiente.trim() : '';
         const sistemas = this.normalizeSystems(config?.sistemas, backendHost);
         const keycloak = this.normalizeKeycloak(config && typeof config === 'object' ? (config as Record<string, unknown>)['keycloak'] : undefined);
+        const features = this.normalizeFeatures(config && typeof config === 'object' ? (config as Record<string, unknown>)['features'] : undefined);
 
         return {
             backendHost,
             ambiente,
             sistemas,
-            keycloak
+            keycloak,
+            features
+        };
+    }
+
+    private normalizeFeatures(rawFeatures: unknown): AppFeaturesConfig {
+        if (!rawFeatures || typeof rawFeatures !== 'object' || Array.isArray(rawFeatures)) {
+            return { ...DEFAULT_FEATURES_CONFIG };
+        }
+
+        const features = rawFeatures as Record<string, unknown>;
+
+        return {
+            retrySettlementEnabled: Boolean(features['retrySettlementEnabled'])
         };
     }
 

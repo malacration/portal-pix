@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { IconFieldModule } from 'primeng/iconfield';
+import { ImageModule } from 'primeng/image';
 import { InputIconModule } from 'primeng/inputicon';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
@@ -15,6 +16,8 @@ import { TooltipModule } from 'primeng/tooltip';
 import { AppConfigService } from '@/app/core/config/app-config.service';
 import { getApiErrorMessage } from '../service/api-error-response';
 import { Cliente, DebugArtifact, DebugService } from '../service/debug.service';
+
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp']);
 
 const tableDateFormatter = new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
@@ -34,6 +37,7 @@ const tableDateFormatter = new Intl.DateTimeFormat('pt-BR', {
         ButtonModule,
         InputTextModule,
         IconFieldModule,
+        ImageModule,
         InputIconModule,
         SelectModule,
         TableModule,
@@ -198,6 +202,7 @@ const tableDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                                     >
                                         <ng-template #header>
                                             <tr>
+                                                <th style="width: 5rem">Preview</th>
                                                 <th>Arquivo</th>
                                                 <th style="width: 6rem">Tipo</th>
                                                 <th style="width: 8rem">Tamanho</th>
@@ -208,6 +213,15 @@ const tableDateFormatter = new Intl.DateTimeFormat('pt-BR', {
 
                                         <ng-template #body let-artifact>
                                             <tr>
+                                                <td>
+                                                    @if (imagePreviewUrls()[artifact.name]; as previewUrl) {
+                                                        <p-image [src]="previewUrl" [alt]="artifact.name" width="48" [preview]="true" />
+                                                    } @else if (isImageArtifact(artifact)) {
+                                                        <i class="pi pi-spin pi-spinner text-2xl text-surface-400"></i>
+                                                    } @else {
+                                                        <i class="pi pi-file text-2xl text-surface-400"></i>
+                                                    }
+                                                </td>
                                                 <td class="font-mono text-sm break-all">{{ artifact.name }}</td>
                                                 <td><p-tag [value]="artifact.extension || '-'" severity="secondary" /></td>
                                                 <td>{{ artifact.sizeLabel }}</td>
@@ -239,7 +253,7 @@ const tableDateFormatter = new Intl.DateTimeFormat('pt-BR', {
 
                                         <ng-template #emptymessage>
                                             <tr>
-                                                <td colspan="5" class="text-center py-8 text-surface-500">
+                                                <td colspan="6" class="text-center py-8 text-surface-500">
                                                     Nenhum artefato disponivel.
                                                 </td>
                                             </tr>
@@ -254,7 +268,7 @@ const tableDateFormatter = new Intl.DateTimeFormat('pt-BR', {
         </div>
     `
 })
-export class Debug implements OnInit {
+export class Debug implements OnInit, OnDestroy {
     private readonly appConfig = inject(AppConfigService);
     private readonly debugService = inject(DebugService);
 
@@ -271,6 +285,7 @@ export class Debug implements OnInit {
     readonly artifactsDirectory = signal('');
     readonly artifactsLoading = signal(false);
     readonly artifactsError = signal('');
+    readonly imagePreviewUrls = signal<Record<string, string>>({});
 
     readonly isPessoaIdValid = computed(() => {
         const parsed = Number(this.pessoaId().trim());
@@ -279,6 +294,10 @@ export class Debug implements OnInit {
 
     ngOnInit(): void {
         this.loadArtifacts();
+    }
+
+    ngOnDestroy(): void {
+        this.revokeImagePreviewUrls();
     }
 
     onSystemChange(systemName: string): void {
@@ -320,11 +339,14 @@ export class Debug implements OnInit {
 
         this.debugService.getArtifacts(host).subscribe({
             next: (response) => {
+                this.revokeImagePreviewUrls();
                 this.artifacts.set(response.files ?? []);
                 this.artifactsDirectory.set(response.directory ?? '');
                 this.artifactsLoading.set(false);
+                this.loadImagePreviews(response.files ?? [], host);
             },
             error: (error: HttpErrorResponse) => {
+                this.revokeImagePreviewUrls();
                 this.artifacts.set([]);
                 this.artifactsDirectory.set('');
                 this.artifactsLoading.set(false);
@@ -333,14 +355,62 @@ export class Debug implements OnInit {
         });
     }
 
+    isImageArtifact(artifact: DebugArtifact): boolean {
+        return IMAGE_EXTENSIONS.has(artifact.extension?.toLowerCase() ?? '');
+    }
+
     openArtifact(artifact: DebugArtifact): void {
-        const url = this.debugService.artifactUrl(artifact.name, false, this.selectedSystem()?.host);
-        window.open(url, '_blank', 'noopener');
+        const host = this.selectedSystem()?.host;
+
+        this.debugService.getArtifactBlob(artifact.name, host).subscribe({
+            next: (blob) => {
+                const blobUrl = URL.createObjectURL(blob);
+                window.open(blobUrl, '_blank', 'noopener');
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+            },
+            error: (error: HttpErrorResponse) => {
+                this.artifactsError.set(getApiErrorMessage(error, 'Nao foi possivel abrir o artefato.'));
+            }
+        });
     }
 
     downloadArtifact(artifact: DebugArtifact): void {
-        const url = this.debugService.artifactUrl(artifact.name, true, this.selectedSystem()?.host);
-        window.open(url, '_blank', 'noopener');
+        const host = this.selectedSystem()?.host;
+
+        this.debugService.getArtifactBlob(artifact.name, host).subscribe({
+            next: (blob) => {
+                const blobUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = artifact.name;
+                link.click();
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+            },
+            error: (error: HttpErrorResponse) => {
+                this.artifactsError.set(getApiErrorMessage(error, 'Nao foi possivel baixar o artefato.'));
+            }
+        });
+    }
+
+    private loadImagePreviews(artifacts: DebugArtifact[], host: string | undefined): void {
+        artifacts
+            .filter((artifact) => this.isImageArtifact(artifact))
+            .forEach((artifact) => {
+                this.debugService.getArtifactBlob(artifact.name, host).subscribe({
+                    next: (blob) => {
+                        const blobUrl = URL.createObjectURL(blob);
+                        this.imagePreviewUrls.update((current) => ({ ...current, [artifact.name]: blobUrl }));
+                    },
+                    error: () => {
+                        // Preview e apenas cosmetico: ignora falhas silenciosamente, o botao "Abrir em nova aba" continua disponivel.
+                    }
+                });
+            });
+    }
+
+    private revokeImagePreviewUrls(): void {
+        Object.values(this.imagePreviewUrls()).forEach((url) => URL.revokeObjectURL(url));
+        this.imagePreviewUrls.set({});
     }
 
     display(value: string | null | undefined): string {
