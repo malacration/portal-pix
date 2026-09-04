@@ -267,11 +267,11 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                                     <td>{{ formatTableDate(transaction.createdAt) }}</td>
                                     <td>
                                         <span
-                                            [ngClass]="getExpirationClass(transaction.pixExpiraEm)"
-                                            [pTooltip]="getExpirationTooltip(transaction.pixExpiraEm)"
+                                            [ngClass]="getExpirationClass(transaction)"
+                                            [pTooltip]="getExpirationTooltip(transaction)"
                                             tooltipPosition="top"
                                         >
-                                            {{ getExpirationCountdown(transaction.pixExpiraEm) }}
+                                            {{ getExpirationCountdown(transaction) }}
                                         </span>
                                     </td>
                                     <td>{{ formatCurrency(transaction.valor) }}</td>
@@ -889,8 +889,22 @@ export class Transactions implements OnInit {
         return normalizedValue || '-';
     }
 
-    getExpirationCountdown(value: unknown): string {
-        const timestamp = this.getTimestamp(value);
+    /**
+     * O dinheiro ja entrou: "Pago" e "Erro na baixa" (pagamento confirmado, so a baixa
+     * no ERP falhou). Nesses casos a expiracao do QR Code nao diz mais nada, e mostrar
+     * "Expirado" em vermelho passa a impressao de problema no pagamento.
+     */
+    isPaidTransaction(transaction: TransactionDocument): boolean {
+        const normalizedStatus = this.normalizeText(transaction.status);
+        return normalizedStatus === 'pago' || normalizedStatus === 'erro na baixa';
+    }
+
+    getExpirationCountdown(transaction: TransactionDocument): string {
+        if (this.isPaidTransaction(transaction)) {
+            return 'Pago';
+        }
+
+        const timestamp = this.getTimestamp(transaction.pixExpiraEm);
 
         if (!timestamp) {
             return '-';
@@ -910,14 +924,19 @@ export class Transactions implements OnInit {
         return Boolean(timestamp && timestamp <= this.now());
     }
 
-    getExpirationClass(value: unknown): string {
-        return this.isExpired(value)
+    getExpirationClass(transaction: TransactionDocument): string {
+        return !this.isPaidTransaction(transaction) && this.isExpired(transaction.pixExpiraEm)
             ? 'font-semibold text-red-600 dark:text-red-300'
             : 'font-semibold text-green-600 dark:text-green-300';
     }
 
-    getExpirationTooltip(value: unknown): string {
-        const absoluteDate = this.formatDetailDate(value);
+    getExpirationTooltip(transaction: TransactionDocument): string {
+        if (this.isPaidTransaction(transaction)) {
+            const paidAt = this.formatDetailDate(transaction['pagamentoConfirmadoEm']);
+            return paidAt === '-' ? 'Pagamento confirmado' : `Pago em ${paidAt}`;
+        }
+
+        const absoluteDate = this.formatDetailDate(transaction.pixExpiraEm);
 
         if (absoluteDate === '-') {
             return 'Expiracao nao informada';
