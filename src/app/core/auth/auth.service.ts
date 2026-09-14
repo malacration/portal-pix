@@ -17,6 +17,7 @@ interface KeycloakTokenClaims {
 })
 export class AuthService {
     private static readonly LOGIN_ATTEMPT_KEY = 'kc-login-attempt';
+    private static readonly PUBLIC_PATHS = ['/pix/share'];
 
     private readonly appConfig = inject(AppConfigService);
     private readonly router = inject(Router);
@@ -215,16 +216,34 @@ export class AuthService {
 
     private buildInitOptions(config: AppKeycloakConfig): KeycloakInitOptions {
         const options: KeycloakInitOptions = {
-            onLoad: config.onLoad,
             checkLoginIframe: config.checkLoginIframe,
             pkceMethod: 'S256'
         };
 
-        if (config.silentCheckSsoRedirectUri) {
+        // Public pages must not contact the authorization endpoint on startup.
+        // Even `check-sso` can perform a top-level redirect when silent SSO is not
+        // available (for example, when the browser blocks third-party cookies).
+        if (this.isPublicPath()) {
+            return options;
+        }
+
+        options.onLoad = config.onLoad;
+
+        if (config.onLoad === 'check-sso' && config.silentCheckSsoRedirectUri) {
             options.silentCheckSsoRedirectUri = this.resolveRedirectUri(config.silentCheckSsoRedirectUri);
         }
 
         return options;
+    }
+
+    private isPublicPath(): boolean {
+        if (typeof window === 'undefined') {
+            return false;
+        }
+
+        const pathname = window.location.pathname.replace(/\/+$/, '') || '/';
+
+        return AuthService.PUBLIC_PATHS.includes(pathname);
     }
 
     private isKeycloakConfigured(config: AppKeycloakConfig): boolean {
