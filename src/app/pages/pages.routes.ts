@@ -11,6 +11,7 @@ export default [
     { path: 'documentation', component: Documentation },
     { path: 'crud', component: Crud },
     { path: 'pix', component: Pix },
+    { path: 'contas-receber', loadComponent: () => import('./receivables/receivables').then(module => module.Receivables) },
     { path: 'transactions', component: Transactions },
     { path: 'debug', component: Debug, canActivate: [roleGuard(['debug', 'ADMIN'])] },
     { path: 'empty', component: Empty },

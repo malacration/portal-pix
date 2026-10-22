@@ -1,0 +1,131 @@
+<div class="card flex flex-col gap-6">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+            <h1 class="m-0 text-xl font-semibold">Contas a receber</h1>
+            <p class="mb-0 text-surface-500">Consulte os títulos do sistema de origem e gere um Pix para recebimento.</p>
+        </div>
+        <p-button label="Atualizar" icon="pi pi-refresh" severity="secondary" [outlined]="true" [loading]="loading() || branchesLoading()" [disabled]="!systemName || branchesLoading() || !!generatingKey()" (onClick)="refresh()" />
+    </div>
+
+    @if (systems.length) {
+        <div class="flex flex-col gap-2">
+            <label for="receivables-system" class="font-medium">Sistema</label>
+            <p-select inputId="receivables-system" [options]="systems" optionLabel="nome" optionValue="nome"
+                [(ngModel)]="systemName" (ngModelChange)="systemChanged()" [disabled]="!!generatingKey()" class="w-full md:w-80" />
+        </div>
+        <form aria-describedby="receivables-filter-help" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" (ngSubmit)="search()">
+            <div class="flex flex-col gap-2 md:col-span-2 xl:col-span-3">
+                <label for="receivables-customer-mode" class="font-medium">Cliente</label>
+                <p-select inputId="receivables-customer-mode" name="customerSearchMode" [options]="customerSearchModes"
+                    optionLabel="label" optionValue="value" [(ngModel)]="customerSearchMode"
+                    (ngModelChange)="customerSearchModeChanged()" [disabled]="!!generatingKey()" class="w-full md:w-64" />
+                @if (customerSearchMode === 'document') {
+                    <app-customer-picker [host]="systemHost" [empresaId]="filters.empresaId"
+                        [selected]="selectedCustomer" [resetKey]="customerResetKey" [disabled]="!!generatingKey()"
+                        (selectionChange)="selectCustomer($event)" />
+                } @else {
+                    <input pInputText id="receivables-customer-id" name="customerId" aria-label="ID do cliente"
+                        [ngModel]="customerIdQuery" (ngModelChange)="customerIdChanged($event)"
+                        inputmode="numeric" placeholder="Informe o ID exato do cliente" maxlength="10"
+                        [disabled]="!!generatingKey()" class="w-full" />
+                    <small class="text-surface-500">Informe o ID conhecido e clique em Consultar para buscar os títulos. O cadastro do cliente não será consultado.</small>
+                }
+            </div>
+            <div class="flex flex-col gap-2">
+                <label for="receivables-entry">Número do lançamento</label>
+                <input pInputText id="receivables-entry" name="lancamento" [(ngModel)]="filters.lancamento" inputmode="numeric" maxlength="10" placeholder="Ex.: 1107684" />
+            </div>
+            <div class="flex flex-col gap-2">
+                <label for="receivables-document">Número do documento</label>
+                <input pInputText id="receivables-document" name="documento" [(ngModel)]="filters.documento" inputmode="numeric" maxlength="10" placeholder="Ex.: 349412" />
+            </div>
+            <div class="flex flex-col gap-2">
+                <label for="receivables-installment">Parcela</label>
+                <input pInputText id="receivables-installment" name="parcela" [(ngModel)]="filters.parcela" inputmode="numeric" maxlength="10" placeholder="Ex.: 4" />
+            </div>
+            <div class="flex flex-col gap-2">
+                <label for="receivables-search">Busca livre</label>
+                <input pInputText id="receivables-search" name="busca" [(ngModel)]="filters.busca" placeholder="Texto do cliente, lançamento ou documento" />
+            </div>
+            <div class="flex flex-col gap-2">
+                <label for="receivables-company">Filial</label>
+                <p-select inputId="receivables-company" name="empresaId" [options]="branches()" optionLabel="label" optionValue="id"
+                    [ngModel]="filters.empresaId" (ngModelChange)="filters.empresaId = $event ?? ''"
+                    [loading]="branchesLoading()" [disabled]="branchesLoading() || !!generatingKey()"
+                    [placeholder]="hasCustomer ? 'Todas as filiais permitidas' : 'Selecione a filial'" [showClear]="hasCustomer" [required]="!hasCustomer" class="w-full" />
+            </div>
+            <div class="flex flex-col gap-2">
+                <label for="receivables-status">Situação</label>
+                <p-select inputId="receivables-status" name="situacao" [options]="statusOptions" optionLabel="label" optionValue="value" [(ngModel)]="filters.situacao" class="w-full" />
+            </div>
+            <div class="flex flex-col gap-2">
+                <label for="receivables-from">Vencimento de</label>
+                <input pInputText type="date" id="receivables-from" name="vencimentoDe" [(ngModel)]="filters.vencimentoDe" (ngModelChange)="datesChanged()" [required]="!hasCustomer" />
+            </div>
+            <div class="flex flex-col gap-2">
+                <label for="receivables-to">Vencimento até</label>
+                <input pInputText type="date" id="receivables-to" name="vencimentoAte" [(ngModel)]="filters.vencimentoAte" (ngModelChange)="datesChanged()" [min]="filters.vencimentoDe" [required]="!hasCustomer" />
+            </div>
+            <div class="flex flex-wrap items-center gap-2 md:col-span-2 xl:col-span-3">
+                <p-button type="submit" label="Consultar" icon="pi pi-search" [loading]="loading()" [disabled]="searchBlockReasons.length > 0" />
+                <p-button type="button" label="Limpar filtros" severity="secondary" [outlined]="true" [disabled]="branchesLoading() || !!generatingKey()" (onClick)="clear()" />
+            </div>
+            <div id="receivables-filter-help" aria-live="polite" class="text-sm md:col-span-2 xl:col-span-3">
+                @if (searchBlockReasons.length) {
+                    <div class="text-red-600 dark:text-red-400">
+                        <p class="m-0 font-medium">Para liberar a consulta:</p>
+                        <ul class="m-0 mt-1 list-disc pl-5">
+                            @for (reason of searchBlockReasons; track reason) { <li>{{ reason }}</li> }
+                        </ul>
+                    </div>
+                } @else {
+                    <p class="m-0 text-surface-500">Filtros prontos. Clique em Consultar para buscar os títulos.</p>
+                }
+            </div>
+        </form>
+    } @else {
+        <p role="status" class="text-surface-500">Nenhum sistema com a operação de contas a receber está configurado.</p>
+    }
+
+    @if (branchesError()) {
+        <div role="alert" class="rounded-border border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200">{{ branchesError() }}</div>
+    }
+
+    @if (error()) {
+        <div role="alert" class="rounded-border border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200">{{ error() }}</div>
+    }
+
+    @if (systems.length) {
+        <p-table [value]="titles()" (onPage)="paginate($event)"
+            [paginator]="true" [first]="first" [rows]="pageSize" [totalRecords]="total()" [rowsPerPageOptions]="[20, 50, 100]"
+            [loading]="loading()" [scrollable]="true" [tableStyle]="{ 'min-width': '65rem' }"
+            [showCurrentPageReport]="true" currentPageReportTemplate="{first} a {last} de {totalRecords} títulos">
+            <ng-template #header>
+                <tr><th>Filial</th><th>Cliente</th><th>Lançamento</th><th>Documento/parcela</th><th>Vencimento</th><th class="text-right">Valor original</th><th class="text-right">Saldo aberto</th><th>Situação</th><th>Ação</th></tr>
+            </ng-template>
+            <ng-template #body let-title>
+                <tr>
+                    <td>{{ title.empresaNome }}<div class="text-sm text-surface-500">{{ title.empresaId }}</div></td>
+                    <td>{{ title.clienteNome }}<div class="text-sm text-surface-500">{{ title.clienteDocumento || formatClienteId(title.clienteId) }}</div></td>
+                    <td>{{ title.tituloId }}</td>
+                    <td>{{ title.documento }}-{{ title.parcela || '—' }}</td>
+                    <td>{{ formatDate(title.vencimento) }}</td>
+                    <td class="text-right whitespace-nowrap">{{ title.valorOriginal | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</td>
+                    <td class="text-right whitespace-nowrap font-semibold">{{ title.saldoAberto | currency:'BRL':'symbol':'1.2-2':'pt-BR' }}</td>
+                    <td><p-tag [value]="statusLabels[title.situacao] || title.situacao" [severity]="title.situacao === 'PAGO' ? 'success' : title.situacao === 'CANCELADO' ? 'secondary' : 'warn'" /></td>
+                    <td><p-button label="Gerar Pix" icon="pi pi-qrcode" size="small" [loading]="generatingKey() === key(title)"
+                        [disabled]="!canGenerate(title) || !!generatingKey()" (onClick)="generate(title)" /></td>
+                </tr>
+            </ng-template>
+            <ng-template #emptymessage>
+                <tr><td colspan="9" class="py-10 text-center text-surface-500">
+                    {{ error() ? 'A consulta não foi concluída. Verifique a mensagem acima.' : 'Nenhum título encontrado para os filtros selecionados.' }}
+                </td></tr>
+            </ng-template>
+        </p-table>
+    }
+</div>
+
+<p-dialog header="Pix do título" [(visible)]="pixVisible" [modal]="true" [style]="{ width: '48rem', maxWidth: '95vw' }">
+    @if (pixVisible) { <app-pix-result [result]="result()" /> }
+</p-dialog>

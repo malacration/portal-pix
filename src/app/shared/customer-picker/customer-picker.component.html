@@ -1,0 +1,37 @@
+<div class="flex flex-wrap items-center gap-2">
+    @if (selected) {
+        <input pInputText [value]="selected.nome" disabled readonly aria-label="Cliente selecionado" class="min-w-0 flex-1" />
+    } @else {
+        <input pInputText [ngModel]="query" (ngModelChange)="changeQuery($event)" [ngModelOptions]="{ standalone: true }"
+            (keydown.enter)="fieldEnter($event)" [disabled]="disabled"
+            aria-label="CPF/CNPJ do cliente" placeholder="Digite o CPF/CNPJ completo"
+            class="min-w-0 flex-1" maxlength="200" />
+    }
+    @if (selected) {
+        <p-button type="button" label="Limpar seleção" icon="pi pi-times" severity="secondary" [outlined]="true" [disabled]="disabled" (onClick)="select(null)" />
+    } @else {
+        <p-button type="button" label="Buscar cliente" icon="pi pi-search" [disabled]="!canSearch()" (onClick)="open()" />
+    }
+</div>
+@if (selected) {
+    <small class="mt-2 block text-surface-500" aria-live="polite">Selecionado: {{ selected.nome }} · Código {{ selected.id }}</small>
+}
+<p-dialog header="Buscar cliente" [(visible)]="visible" [modal]="true" [dismissableMask]="true" [closeOnEscape]="true" (onHide)="close()" [style]="{ width: '52rem', maxWidth: '95vw' }">
+    <p class="mt-0 text-surface-500">Busque pelo CPF/CNPJ completo, com ou sem pontuação. A consulta de pessoas não utiliza datas ou vencimento.</p>
+    <p class="text-sm text-surface-500">Use as setas para navegar e Enter para confirmar o cliente em foco.</p>
+    <div class="mb-4 flex flex-wrap gap-2">
+        <input pInputText [ngModel]="query" (ngModelChange)="changeQuery($event)" [ngModelOptions]="{ standalone: true }" [disabled]="disabled || !!selected" [readonly]="!!selected" (keydown.enter)="confirmEnter($event)" aria-label="CPF/CNPJ do cliente" placeholder="CPF/CNPJ completo" class="min-w-0 flex-1" maxlength="200" />
+        <p-button label="Buscar" icon="pi pi-search" [loading]="loading()" (onClick)="search()" />
+    </div>
+    @if (error()) { <p role="alert" class="text-red-600">{{ error() }}</p> }
+    <p-table [value]="customers()" [loading]="loading()" (onPage)="paginate($event)"
+        [paginator]="true" [rows]="20" [first]="first" [totalRecords]="total()" [scrollable]="true" [tableStyle]="{ 'min-width': '30rem' }">
+        <ng-template #header><tr><th>Código</th><th>Cliente</th><th>CPF/CNPJ</th><th>Ação</th></tr></ng-template>
+        <ng-template #body let-customer>
+            <tr [class.bg-surface-100]="customers()[activeIndex]?.id === customer.id"><td>{{ customer.id }}</td><td>{{ customer.nome }}</td><td>{{ customer.documento || '—' }}</td>
+                <td><button pButton #customerSelect type="button" class="p-button-sm" (focus)="focusCustomer(customer)"
+                    (keydown)="navigate($event)" (keydown.enter)="confirmEnter($event)" (click)="select(customer)">Selecionar</button></td></tr>
+        </ng-template>
+        <ng-template #emptymessage><tr><td colspan="4" class="py-6 text-center">{{ error() ? 'A consulta não foi concluída.' : 'Nenhum cliente encontrado.' }}</td></tr></ng-template>
+    </p-table>
+</p-dialog>

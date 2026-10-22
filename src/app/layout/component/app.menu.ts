@@ -31,6 +31,11 @@ export class AppMenu {
                 label: 'Operacao',
                 items: [
                     {
+                        label: 'Contas a receber',
+                        icon: 'pi pi-fw pi-list',
+                        routerLink: ['/contas-receber']
+                    },
+                    {
                         label: 'Gerar PIX',
                         icon: 'pi pi-fw pi-qrcode',
                         routerLink: ['/pix']

@@ -16,7 +16,7 @@ import { TagModule } from 'primeng/tag';
 import { TooltipModule } from 'primeng/tooltip';
 import { AuthService } from '@/app/core/auth/auth.service';
 import { AppConfigService } from '@/app/core/config/app-config.service';
-import { getPixTransactionTypeLabel, PixTransactionType } from '@/app/core/models/pix-transaction-type';
+import { getPixTransactionTypeLabel, PIX_TRANSACTION_TYPE_LABELS, PixTransactionType } from '@/app/core/models/pix-transaction-type';
 import { PixShareLinkComponent, PixShareLinkData } from '@/app/shared/pix-share-link/pix-share-link.component';
 import { getApiErrorMessage } from '../service/api-error-response';
 import { PixService, TransactionPaymentConsultationResponse } from '../service/pix.service';
@@ -136,7 +136,7 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                             />
                         </div>
 
-                        <div class="col-span-12 md:col-span-6 lg:col-span-4">
+                        <div class="col-span-12 md:col-span-6 lg:col-span-3">
                             <label for="transactions-search" class="mb-2 block font-medium">Busca</label>
                             <p-iconfield class="w-full">
                                 <p-inputicon styleClass="pi pi-search" />
@@ -152,7 +152,7 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                             </p-iconfield>
                         </div>
 
-                        <div class="col-span-12 md:col-span-6 lg:col-span-3">
+                        <div class="col-span-12 md:col-span-6 lg:col-span-2">
                             <label for="transactions-status" class="mb-2 block font-medium">Status</label>
                             <p-select
                                 inputId="transactions-status"
@@ -162,6 +162,19 @@ const detailDateFormatter = new Intl.DateTimeFormat('pt-BR', {
                                 optionValue="value"
                                 [ngModel]="statusFilter()"
                                 (ngModelChange)="statusFilter.set($event ?? '')"
+                            />
+                        </div>
+
+                        <div class="col-span-12 md:col-span-6 lg:col-span-2">
+                            <label for="transactions-type" class="mb-2 block font-medium">Tipo</label>
+                            <p-select
+                                inputId="transactions-type"
+                                class="w-full"
+                                [options]="typeOptions"
+                                optionLabel="label"
+                                optionValue="value"
+                                [ngModel]="typeFilter()"
+                                (ngModelChange)="typeFilter.set($event ?? '')"
                             />
                         </div>
 
@@ -590,6 +603,11 @@ export class Transactions implements OnInit {
     readonly errorMessage = signal('');
     readonly searchTerm = signal('');
     readonly statusFilter = signal('');
+    readonly typeFilter = signal<PixTransactionType | ''>('');
+    readonly typeOptions = [
+        { label: 'Todos os tipos', value: '' },
+        ...Object.entries(PIX_TRANSACTION_TYPE_LABELS).map(([value, label]) => ({ label, value }))
+    ];
     readonly detailsVisible = signal(false);
     readonly selectedTransaction = signal<TransactionDocument | null>(null);
     readonly paymentConsultationLoading = signal(false);
@@ -607,6 +625,7 @@ export class Transactions implements OnInit {
     readonly filteredTransactions = computed(() => {
         const searchTerm = this.searchTerm().trim().toLowerCase();
         const statusFilter = this.statusFilter().trim().toLowerCase();
+        const typeFilter = this.typeFilter();
 
         return this.transactions().filter((transaction) => {
             const matchesStatus = !statusFilter || this.normalizeText(this.getTransactionStatus(transaction)) === statusFilter;
@@ -616,7 +635,7 @@ export class Transactions implements OnInit {
                     return this.normalizeText(transaction[field]).includes(searchTerm);
                 });
 
-            return matchesStatus && matchesText;
+            return matchesStatus && matchesText && (!typeFilter || transaction.tipoTransacao === typeFilter);
         });
     });
 
@@ -632,7 +651,7 @@ export class Transactions implements OnInit {
         return [{ label: 'Todos os status', value: '' }, ...statuses.map((status) => ({ label: status, value: status }))];
     });
 
-    readonly hasActiveFilters = computed(() => Boolean(this.searchTerm().trim() || this.statusFilter().trim()));
+    readonly hasActiveFilters = computed(() => Boolean(this.searchTerm().trim() || this.statusFilter().trim() || this.typeFilter()));
 
     readonly detailEntries = computed<TransactionDetailEntry[]>(() => {
         const transaction = this.selectedTransaction();
@@ -716,6 +735,7 @@ export class Transactions implements OnInit {
     clearFilters(): void {
         this.searchTerm.set('');
         this.statusFilter.set('');
+        this.typeFilter.set('');
     }
 
     openDetails(transaction: TransactionDocument): void {

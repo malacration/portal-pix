@@ -19,6 +19,7 @@ export const appRoutes: Routes = [
         children: [
             { path: '', component: Pix },
             { path: 'pix', component: Pix },
+            { path: 'contas-receber', loadComponent: () => import('./app/pages/receivables/receivables').then(module => module.Receivables) },
             { path: 'transactions', component: Transactions },
             { path: 'debug', component: Debug, canActivate: [roleGuard('debug')] },
             { path: 'uikit', loadChildren: () => import('./app/pages/uikit/uikit.routes') },
